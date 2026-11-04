@@ -184,6 +184,66 @@ async function compactURL(fileOrBlob, maxDim = 1100) {
   return url;
 }
 
+/* ---------- the dish photo inside a scanned image ---------- */
+/* Crop a box given as [ymin, xmin, ymax, xmax] on a 0-1000 scale. Returns a data URL, or null if the box is too small. */
+async function cropPhoto(file, box) {
+  if (!Array.isArray(box) || box.length !== 4) return null;
+  let [y0, x0, y1, x1] = box.map(v => Math.max(0, Math.min(1000, Number(v) || 0)));
+  if (y1 < y0) [y0, y1] = [y1, y0]; if (x1 < x0) [x0, x1] = [x1, x0];
+  if ((y1 - y0) * (x1 - x0) < 40000 || y1 - y0 < 120 || x1 - x0 < 120) return null; // under 4% of the image
+  const bmp = await decode(file);
+  const W = bmp.width || bmp.naturalWidth, H = bmp.height || bmp.naturalHeight;
+  const sx = x0 / 1000 * W, sy = y0 / 1000 * H, sw = (x1 - x0) / 1000 * W, sh = (y1 - y0) / 1000 * H;
+  if (sw < 140 || sh < 140) return null;
+  const k = Math.min(1, 1100 / Math.max(sw, sh));
+  const c = document.createElement("canvas"); c.width = Math.round(sw * k); c.height = Math.round(sh * k);
+  c.getContext("2d").drawImage(bmp, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", .82);
+}
+/* Without Gemini: find the largest text-free, colourful, busy rectangle (a photo, not paper or a plain background). */
+async function findPhotoBox(file, ocr) {
+  const bmp = await decode(file);
+  const c = drawTo(bmp, 120); const cw = c.width, ch = c.height;
+  const px = c.getContext("2d").getImageData(0, 0, cw, ch).data;
+  const lum = new Float32Array(cw * ch), sat = new Float32Array(cw * ch);
+  for (let i = 0; i < cw * ch; i++) {
+    const r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    lum[i] = .299 * r + .587 * g + .114 * b; sat[i] = mx ? (mx - mn) / mx : 0;
+  }
+  const text = new Uint8Array(cw * ch);
+  for (const bb of ocr.lines || []) {
+    const gx0 = Math.floor(bb.x0 / ocr.w * cw) - 1, gx1 = Math.ceil(bb.x1 / ocr.w * cw) + 1;
+    const gy0 = Math.floor(bb.y0 / ocr.h * ch) - 1, gy1 = Math.ceil(bb.y1 / ocr.h * ch) + 1;
+    for (let y = Math.max(0, gy0); y < Math.min(ch, gy1); y++) for (let x = Math.max(0, gx0); x < Math.min(cw, gx1); x++) text[y * cw + x] = 1;
+  }
+  const photo = new Uint8Array(cw * ch);
+  for (let y = 1; y < ch - 1; y++) for (let x = 1; x < cw - 1; x++) {
+    const i = y * cw + x; if (text[i]) continue;
+    let m = 0, m2 = 0, s = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const v = lum[i + dy * cw + dx]; m += v; m2 += v * v; s += sat[i + dy * cw + dx]; }
+    m /= 9; const sd = Math.sqrt(Math.max(0, m2 / 9 - m * m)); s /= 9;
+    photo[i] = (sd > 14 && s > .12) || s > .32 ? 1 : 0;
+  }
+  // largest all-photo rectangle (histogram method), allowing the odd gap by smoothing rows first
+  const hgt = new Int32Array(cw); let best = {a: 0};
+  for (let y = 0; y < ch; y++) {
+    for (let x = 0; x < cw; x++) { const i = y * cw + x; const near = photo[i] || (x > 0 && x < cw - 1 && photo[i - 1] && photo[i + 1] && !text[i]); hgt[x] = near ? hgt[x] + 1 : 0; }
+    const st = [];
+    for (let x = 0; x <= cw; x++) {
+      const hh = x < cw ? hgt[x] : 0; let start = x;
+      while (st.length && st[st.length - 1][1] >= hh) { const [sx, sh] = st.pop(); const a = sh * (x - sx); if (a > best.a) best = {a, x0: sx, x1: x, y0: y - sh + 1, y1: y + 1}; start = sx; }
+      st.push([start, hh]);
+    }
+  }
+  if (!best.a) return null;
+  const bw = best.x1 - best.x0, bh = best.y1 - best.y0;
+  if (best.a < .12 * cw * ch || bw < .3 * cw || bh < .18 * ch || bw / bh > 4 || bh / bw > 4) return null;
+  // the region must really be colourful (food), not grey paper texture or a dark table
+  let cs = 0; for (let y = best.y0; y < best.y1; y++) for (let x = best.x0; x < best.x1; x++) cs += sat[y * cw + x];
+  if (cs / best.a < .2) return null;
+  return [best.y0 / ch * 1000, best.x0 / cw * 1000, best.y1 / ch * 1000, best.x1 / cw * 1000].map(Math.round);
+}
+
 /* ---------- Gemini (the user's own free key) ---------- */
 const Gemini = {
   key: ls.get("rn-gemini-key", ""),
@@ -292,20 +352,54 @@ const Local = {
   },
   async ocr(file) {
     const w = await this.getWorker();
-    const blob = await fileToBlob(file, 2200, .92, "grayscale(1) contrast(1.25)");
-    const {data} = await w.recognize(blob);
-    return String(data && data.text || "");
+    const bmp = await decode(file);
+    const c = drawTo(bmp, 2200, "grayscale(1) contrast(1.25)");
+    const {data} = await w.recognize(await toBlob(c, .92));
+    // Keep only lines that read as real words: a photo often yields "text" that is mostly symbols, at low confidence.
+    // The page text (data.text) is in reading order; the per-line list carries positions and confidence.
+    // Both list the same lines in the same order, so they are paired up when the counts match.
+    const strip = t => fixOrder(String(t || "").replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "").trim());
+    const all = [];
+    for (const b of (data && data.blocks) || []) for (const pg of b.paragraphs || []) for (const l of pg.lines || []) if (strip(l.text)) all.push(l);
+    const read = String(data && data.text || "").split("\n").map(strip).filter(Boolean);
+    const paired = read.length === all.length;
+    const lines = [], texts = [];
+    const good = (t, conf) => {
+      const letters = (t.match(/\p{L}/gu) || []).length, heb = (t.match(/[\u05D0-\u05EA]/g) || []).length;
+      const ratio = letters / Math.max(1, t.replace(/\s/g, "").length);
+      return letters >= 2 && ratio >= .6 && (conf >= 60 || (conf >= 40 && heb >= 3));
+    };
+    if (paired) all.forEach((l, i) => { if (good(read[i], l.confidence == null ? 100 : l.confidence)) { texts.push(read[i]); if (l.bbox) lines.push(l.bbox); } });
+    else {
+      read.forEach(t => { if (good(t, 100)) texts.push(t); });
+      all.forEach(l => { if (good(strip(l.text), l.confidence == null ? 100 : l.confidence) && l.bbox) lines.push(l.bbox); });
+    }
+    return {text: texts.join("\n"), lines, w: c.width, h: c.height};
   },
   async stop() { if (this.worker) { try { await this.worker.terminate(); } catch {} this.worker = null; } },
 };
 
+/* Hebrew OCR sometimes returns a line in visual order: "כוסות קמח 2", ".מחממים תנור .1". Put numbers and periods back. */
+function fixOrder(t) {
+  const heb = (t.match(/[\u05D0-\u05EA]/g) || []).length, lat = (t.match(/[A-Za-z]/g) || []).length;
+  if (heb < 3 || heb < lat) return t;
+  let m;
+  if ((m = t.match(/^\.?\s*(.*?)\s*\.\s*(\d{1,2})$/)) && /[\u05D0-\u05EA]/.test(m[1])) return `${m[2]}. ${m[1].replace(/\.$/, "")}.`; // ".step .1" -> "1. step."
+  if (/^\.\S/.test(t)) t = t.slice(1) + ".";                                                     // ".text" -> "text."
+  if ((m = t.match(/^(\D*[\u05D0-\u05EA]\D*?)\s*(\d+(?:[.,/]\d+)?|½|¼|¾|⅓|⅔)$/)) && m[1].trim().split(/\s+/).length <= 4 && !VERB_RE.test(m[1])) return `${m[2]} ${m[1].trim()}`; // "קמח 2" -> "2 קמח"
+  return t;
+}
 const UNIT_RE = /(^|\s)(\d+([.,/]\d+)?|½|¼|¾|⅓|⅔|חצי|רבע|שליש|כוס|כוסות|כף|כפות|כפית|כפיות|גרם|גר'|ג'|ק"ג|קילו|מ"ל|ליטר|יח'|יחידות|חבילה|חבילות|שקית|שקיות|קופסה|קופסת|פחית|צרור|שן|שיני|קורט|מעט|לפי הטעם|חופן|cups?|tbsp|tsp|grams?|g|ml|oz|lb)(?=\s|$|[.,)])/i;
 const VERB_RE = /(מערבבים|מוסיפים|אופים|מחממים|מבשלים|מטגנים|שמים|יוצקים|מקציפים|לשים|קוצצים|חותכים|מגישים|מניחים|טורפים|מרתיחים|מסננים|משרים|מפזרים|מכניסים|מוציאים|מקררים|משמנים|מרפדים|מגלגלים|ממלאים|מקפלים|לערבב|להוסיף|לאפות|לבשל|לטגן|לחמם|לקצוץ|להגיש|לטרוף|mix|add|bake|cook|stir|heat|serve|place|pour|whisk|preheat)/i;
 const ING_W = ["מצרכים","המצרכים","רכיבים","הרכיבים","מרכיבים","המרכיבים","מה צריך","חומרים","ingredients"];
 const STEP_W = ["אופן ההכנה","אופן הכנה","ההכנה","הכנה","הוראות הכנה","הוראות","דרך ההכנה","שלבי הכנה","שלבי ההכנה","preparation","instructions","method","directions"];
 const NOTE_W = ["הערות","הערה","טיפ","טיפים","notes","note","tips","tip"];
 const headOf = l => { const t = l.replace(/[:：\-–*#•]/g, " ").replace(/\s+/g, " ").trim().toLowerCase(); if (t.length > 28) return null;
-  const hit = ws => ws.some(w => t === w || t.startsWith(w + " ")); return hit(ING_W) ? "ing" : hit(STEP_W) ? "st" : hit(NOTE_W) ? "notes" : null; };
+  const hit = ws => ws.some(w => t === w || t.startsWith(w + " "));
+  if (hit(ING_W)) return "ing"; if (hit(STEP_W)) return "st"; if (hit(NOTE_W)) return "notes";
+  // a short line holding a heading word, even if the word before it was misread ("אופן ההכנה" read as "DIX ההכנה")
+  if (t.length <= 20 && !/\d/.test(t)) { const w = t.split(" "); if (w.includes("ההכנה") || w.includes("הכנה")) return "st"; if (w.includes("מצרכים") || w.includes("המצרכים") || w.includes("רכיבים")) return "ing"; }
+  return null; };
 const letterRatio = l => (l.match(/[\p{L}\p{N}½¼¾⅓⅔]/gu) || []).length / Math.max(1, l.replace(/\s/g, "").length);
 const ingLike = l => l.length < 70 && (UNIT_RE.test(l) || /^[•\-*·◦▪]\s*/.test(l)) && !VERB_RE.test(l);
 const cleanLine = l => l.replace(/[|_~^`]+/g, " ").replace(/\s+/g, " ").trim();
@@ -514,7 +608,8 @@ function openRecipe(id) {
     <div class="hero" style="--h:${c.h}">
       ${r.photo ? `<img alt="תמונת המנה" data-img="${esc(r.photo)}">` : `<div class="plate"><span>${esc(plateLetter(r.title))}</span></div>`}
       <button class="btn on-img icon-btn hero-close" type="button" data-act="close" aria-label="סגירה"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-      <div class="hero-tools"><button class="btn on-img sm" type="button" data-act="photo">${r.photo ? "החלפת תמונת המנה" : "הוספת תמונה של המנה"}</button></div>
+      <div class="hero-tools"><button class="btn on-img sm" type="button" data-act="photo">${r.photo ? "החלפת תמונת המנה" : "הוספת תמונה של המנה"}</button>${r.photo ? `<button class="btn on-img sm" type="button" data-act="nophoto">הסרה</button>` : ""}</div>
+      ${r.photo && r.autoPhoto ? `<span class="badge" style="position:absolute;top:14px;right:14px">נלקחה מהתמונה שנסרקה</span>` : ""}
     </div>
     <div class="r-head">
       <div class="chips">
@@ -554,7 +649,8 @@ function openRecipe(id) {
     else if (act === "fav") { r.fav = !r.fav; await saveRecipe(r); openRecipe(r.id); }
     else if (act === "ok") { r.fresh = false; await saveRecipe(r); openRecipe(r.id); toast("מעולה, סומן כבדוק"); }
     else if (act === "share") openShare({kind: "recipe", ids: [r.id], title: r.title});
-    else if (act === "photo") pickPhoto(async url => { const old = r.photo; r.photo = await putImg(url); await saveRecipe(r); if (old) await delImg(old); openRecipe(r.id); toast("התמונה נוספה"); });
+    else if (act === "photo") pickPhoto(async url => { const old = r.photo; r.photo = await putImg(url); r.autoPhoto = false; await saveRecipe(r); if (old) await delImg(old); openRecipe(r.id); toast("התמונה נוספה"); });
+    else if (act === "nophoto") { const old = r.photo; r.photo = null; r.autoPhoto = false; await saveRecipe(r); if (old) await delImg(old); openRecipe(r.id); toast("התמונה הוסרה"); }
     else if (act === "del") {
       if (!a.classList.contains("armed")) { a.classList.add("armed"); a.textContent = "ללחוץ שוב כדי למחוק"; setTimeout(() => { if (a.isConnected) { a.classList.remove("armed"); a.textContent = "מחיקה"; } }, 3500); return; }
       closeLayer(); await deleteRecipe(r.id); toast("המתכון נמחק");
@@ -624,7 +720,7 @@ function openEditor(r, {isNew} = {}) {
         if (["manual", "web", "text", "sample"].includes(src.type)) draft.source = {type: "web", url, label: hostOf(url)};
         else draft.source = Object.assign(src, {url});
       } else { delete src.url; delete src.alt; if (src.type === "web") src.type = "manual"; draft.source = src; }
-      if (newPhoto !== undefined) { const old = draft.photo; draft.photo = newPhoto ? await putImg(newPhoto) : null; if (old) await delImg(old); }
+      if (newPhoto !== undefined) { const old = draft.photo; draft.photo = newPhoto ? await putImg(newPhoto) : null; draft.autoPhoto = false; if (old) await delImg(old); }
       await saveRecipe(draft); toast("נשמר"); openRecipe(draft.id);
     }
   });
@@ -813,6 +909,7 @@ async function extractGemini(items, signal, forced) {
 ${forced ? "The user says this image contains a recipe; extract whatever recipe content you can." : `If the image does not contain a recipe (ingredients and/or preparation steps), reply {"isRecipe": false, "reason": "short reason in Hebrew"}.`}
 Otherwise reply {"isRecipe": true, "recipes": [ ... ]}${multi ? " with exactly one recipe" : " — more than one item only if the image holds several separate recipes"}. Each recipe is:
 ${RECIPE_SHAPE()}
+Also give each recipe "dishPhoto": if the image${multi ? "s include" : " includes"} a photograph of the prepared dish or food (not of text, a page or a hand), its location as {"image": ${multi ? "the image number, from 1" : "1"}, "box_2d": [ymin, xmin, ymax, xmax]} on a 0-1000 scale; otherwise null.
 Rules: transcribe faithfully — never invent quantities, ingredients or steps that are not there; write an unreadable word as [?]. If an ingredient is mentioned only inside the steps, still list it in ingredients. If there is no title, give a short descriptive Hebrew title. Choose the category by what the dish is. Use the category names exactly as listed. ${langRule()}`;
   return Gemini.json(prompt, {images: blobs, signal});
 }
@@ -821,8 +918,8 @@ async function extractLocal(items, signal, forced) {
   const texts = [];
   for (const it of items) {
     if (signal.aborted) throw {code: "cancelled"};
-    if (it.ocrText == null) it.ocrText = await Local.ocr(it.file);
-    texts.push(it.ocrText);
+    if (it.ocr == null) it.ocr = await Local.ocr(it.file);
+    texts.push(it.ocr.text);
   }
   if (signal.aborted) throw {code: "cancelled"};
   const text = texts.join("\n");
@@ -830,6 +927,9 @@ async function extractLocal(items, signal, forced) {
   if (!forced && !sc.ok) return {isRecipe: false, reason: text.trim().length < 15 ? "אין בתמונה טקסט" : "לא נראה כמו מתכון"};
   const r = parseRecipeText(text, items[0].name);
   if (!r.ingredients.length && !r.steps.length) return {isRecipe: false, reason: "לא הצלחתי לקרוא טקסט"};
+  for (let k = 0; k < items.length && !r.dishPhoto; k++) {
+    try { const box = await findPhotoBox(items[k].file, items[k].ocr); if (box) r.dishPhoto = {image: k + 1, box_2d: box}; } catch {}
+  }
   return {isRecipe: true, recipes: [r]};
 }
 async function saveExtracted(items, res) {
@@ -840,6 +940,12 @@ async function saveExtracted(items, res) {
   const out = [];
   for (const o of recs) {
     const r = normRecipe(o, {sourceImgs: srcIds.slice(), source: {type: "image", label: items.map(i => i.name).join(", ")}, fresh: true});
+    const dp = o.dishPhoto;
+    if (dp && typeof dp === "object") {
+      const it = items[Math.max(0, Math.min(items.length - 1, (Number(dp.image) || 1) - 1))];
+      try { const url = await cropPhoto(it.file, dp.box_2d || dp.box); if (url) { r.photo = await putImg(url); r.autoPhoto = true; } } catch {}
+    }
+    delete r.dishPhoto;
     await saveRecipe(r, {quiet: true}); out.push(r.id);
   }
   return out;

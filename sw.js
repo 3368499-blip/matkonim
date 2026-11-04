@@ -1,5 +1,5 @@
 /* Offline support for מחברת המתכונים: serve the app from cache, refresh it in the background. */
-const CACHE = 'recipes-v1';
+const CACHE = 'recipes-v2';
 const SHELL = ['./', './index.html', './style.css', './app.js', './manifest.webmanifest', './icon.svg', './icon-180.png', './icon-192.png', './icon-512.png'];
 const CACHEABLE = /^https:\/\/(fonts\.googleapis\.com|fonts\.gstatic\.com|cdn\.jsdelivr\.net)\//;
 

@@ -462,7 +462,7 @@ function normRecipe(o, extra = {}) {
     intro: String(o.intro || "").trim(), byline: String(o.byline || "").trim(), credit: String(o.credit || "").trim(),
     temp: String(o.temp || "").trim(), servings: String(o.servings || "").trim(), time: String(o.time || "").trim(),
     ingredients: arr(o.ingredients), steps: arr(o.steps), notes: String(o.notes || "").trim(), alerts: arr(o.alerts),
-    tags: arr(o.tags).slice(0, 6), photo: null, photos: [], thumb: "", sourceImgs: [], video: "", source: {type: "manual"},
+    tags: arr(o.tags).slice(0, 6), photo: null, photos: [], thumb: "", sourceImgs: [], video: "", videos: [], source: {type: "manual"},
     fav: false, fresh: false, createdAt: now(), updatedAt: now(),
   }, extra);
 }
@@ -494,13 +494,21 @@ async function loadBuiltins() {
   let data;
   try { const res = await fetch("builtin.json", {cache: "no-cache"}); if (!res.ok) return false; data = await res.json(); } catch { return false; }
   const ver = data.version || 1;
-  if ((await meta.get("builtinVer", 0)) >= ver) return false;
+  const seen = await meta.get("builtinVer", 0);
+  if (seen >= ver) return false;
+  if (seen) { // already added on an earlier visit: refresh only the video links, keep everything the person changed
+    const byId = new Map((data.recipes || []).map(o => [o.id, o]));
+    for (const r of S.recipes) {
+      const o = r.builtin && byId.get(r.id);
+      if (o && (o.video !== r.video || JSON.stringify(o.videos || []) !== JSON.stringify(r.videos || []))) { r.video = o.video || ""; r.videos = o.videos || []; await Store.put("recipes", clone(r)); }
+    }
+  }
   const deleted = new Set(await meta.get("deletedBuiltins", []));
   const have = new Set(S.recipes.map(r => r.id));
   for (const o of data.recipes || []) {
     if (have.has(o.id) || deleted.has(o.id)) continue;
     const r = normRecipe(o, {id: o.id, builtin: true, photo: o.photo || null, photos: o.photos || [], thumb: o.thumb || "",
-      sourceImgs: o.sourceImgs || [], video: o.video || "", source: o.source || {type: "family"}, createdAt: o.order || 0, updatedAt: 0});
+      sourceImgs: o.sourceImgs || [], video: o.video || "", videos: o.videos || (o.video ? [o.video] : []), source: o.source || {type: "family"}, createdAt: o.order || 0, updatedAt: 0});
     S.recipes.push(r); await Store.put("recipes", clone(r));
   }
   for (const r of S.recipes.filter(r => r.sample)) await Store.del("recipes", r.id); // the old example recipes
@@ -624,6 +632,7 @@ function openRecipe(id) {
   const r = S.recipes.find(x => x.id === id); if (!r) return;
   const c = catById(r.category);
   const photos = photosOf(r);
+  const vids = [...new Set([...(r.videos || []), r.video].filter(Boolean))].filter(v => /^(vid\/|https:)/.test(v));
   const meta = [r.temp && `🔥 ${r.temp}`, r.time && `⏱️ ${r.time}`, r.servings && `🍽️ ${r.servings}`].filter(Boolean);
   const notes = String(r.notes || "").split("\n").map(x => x.trim()).filter(Boolean);
   const more = S.recipes.filter(o => o.id !== r.id && o.category === r.category).slice(0, 4);
@@ -648,7 +657,7 @@ function openRecipe(id) {
       <section class="panel"><h2>🧺 מצרכים</h2>${r.ingredients.length ? ingHTML(r.ingredients) : `<p class="hint">לא נרשמו מצרכים.</p>`}</section>
       <section class="panel"><h2>👩‍🍳 אופן ההכנה</h2>${r.steps.length ? stepsHTML(r.steps) + `<p class="noprint hint" style="margin:6px 0 0">טיפ: נגיעה בשלב מסמנת אותו כבוצע</p>` : `<p class="hint">לא נרשם אופן הכנה.</p>`}</section>
       ${notes.length ? `<section class="panel"><h2>💡 טיפים והערות חשובות</h2><ul class="notes">${notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul></section>` : ""}
-      ${r.video ? `<section class="panel vidpanel noprint"><h2>🎬 סרטון</h2><video controls playsinline preload="metadata"${r.photo && isPath(r.photo) ? ` poster="${esc(r.photo)}"` : ""} src="${esc(r.video)}"></video></section>` : ""}
+      ${vids.length ? `<section class="panel vidpanel noprint"><h2>🎬 ${vids.length > 1 ? "סרטוני המתכון" : "סרטון המתכון"}</h2>${vids.map(v => `<video controls playsinline preload="metadata"${r.photo && isPath(r.photo) ? ` poster="${esc(r.photo)}"` : ""} src="${esc(v)}"></video>`).join("")}</section>` : ""}
       ${r.credit ? `<p class="src credit">👩‍🍳 המתכון של: <b>${esc(r.credit)}</b></p>` : ""}
       ${src ? `<p class="src">${src}</p>` : ""}
       ${(r.sourceImgs || []).length ? `<details class="orig"><summary>📷 תמונת המקור</summary><div class="scans">${r.sourceImgs.map((im, i) => `<a href="${isPath(im) ? esc(im) : "#"}" target="_blank" rel="noopener" data-full="${esc(im)}"><img alt="תמונת המקור ${i + 1}" loading="lazy" ${imgAttr(im)}></a>`).join("")}<small>נגיעה בתמונה פותחת אותה בגודל מלא</small></div></details>` : ""}
@@ -1314,7 +1323,7 @@ async function importFile(file) {
       if (ex && (ex.updatedAt || 0) >= (o.updatedAt || 0)) continue;
       const pic = i => imgMap[i] || (isPath(i) && /^img\//.test(i) ? i : null);
       const r = normRecipe(o, {id: ex ? ex.id : (o.id || rid()), photo: o.photo ? pic(o.photo) : null, photos: (o.photos || []).map(pic).filter(Boolean), thumb: o.thumb && /^img\//.test(o.thumb) ? o.thumb : "",
-        sourceImgs: (o.sourceImgs || []).map(pic).filter(Boolean), video: o.video || "", builtin: !!o.builtin, autoPhoto: !!o.autoPhoto, source: o.source || {type: "shared"}, fav: !!o.fav, createdAt: o.createdAt || now()});
+        sourceImgs: (o.sourceImgs || []).map(pic).filter(Boolean), video: /^vid\/[\w.-]+$/.test(o.video || "") ? o.video : "", videos: (o.videos || []).filter(v => /^vid\/[\w.-]+$/.test(v)), builtin: !!o.builtin, autoPhoto: !!o.autoPhoto, source: o.source || {type: "shared"}, fav: !!o.fav, createdAt: o.createdAt || now()});
       if (ex) { if (ex.photo && ex.photo !== r.photo) await delImg(ex.photo); upd++; } else n++;
       await saveRecipe(r, {quiet: true});
     }

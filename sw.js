@@ -1,5 +1,5 @@
 /* Offline support for מחברת המתכונים: serve the app from cache, refresh it in the background. */
-const CACHE = 'recipes-v3';
+const CACHE = 'recipes-v4';
 const SHELL = ['./', './index.html', './style.css', './app.js', './builtin.json', './fonts/rubik.woff2', './manifest.webmanifest', './icon.svg', './icon-180.png', './icon-192.png', './icon-512.png'];
 const CACHEABLE = /^https:\/\/(fonts\.googleapis\.com|fonts\.gstatic\.com|cdn\.jsdelivr\.net)\//;
 
@@ -15,6 +15,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   const own = url.origin === self.location.origin && url.pathname.startsWith(new URL('./', self.location).pathname);
   if (!own && !CACHEABLE.test(req.url)) return;
+  if (/\/vid\//.test(url.pathname)) return; // videos stream with range requests; leave them to the browser
   e.respondWith(caches.open(CACHE).then(async c => {
     const hit = await c.match(req, {ignoreSearch: own});
     const net = fetch(req).then(res => { if (res && (res.ok || res.type === 'opaque')) c.put(req, res.clone()); return res; }).catch(() => null);

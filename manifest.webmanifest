@@ -1,18 +1,35 @@
 {
-  "name": "מחברת המתכונים",
+  "name": "המתכונים של תפארת",
   "short_name": "מתכונים",
-  "description": "סורקים תיקיית תמונות, והאפליקציה מוצאת את המתכונים, מקלידה אותם וממיינת לקטגוריות.",
+  "description": "מתכוני המשפחה במקום אחד, ואפשר גם לסרוק תמונות של מתכונים.",
   "lang": "he",
   "dir": "rtl",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#F2F3EE",
-  "theme_color": "#1E4BA3",
+  "background_color": "#fffaf6",
+  "theme_color": "#fde2e7",
   "icons": [
-    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
-    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
-    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
-    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml"}
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
   ]
 }

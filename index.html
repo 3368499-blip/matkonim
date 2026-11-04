@@ -3,49 +3,52 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>מחברת המתכונים</title>
-<meta name="description" content="סורקים תיקיית תמונות, והאפליקציה מוצאת את המתכונים, מקלידה אותם וממיינת לקטגוריות.">
-<meta name="theme-color" content="#1E4BA3">
+<title>המתכונים של תפארת</title>
+<meta name="description" content="מתכוני המשפחה במקום אחד: מאפים, עוגות, ראשונות, סלטים, קינוחים ופסח – בשרי, חלבי ופרווה. אפשר גם לסרוק תמונות של מתכונים.">
+<meta name="theme-color" content="#fde2e7">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="מתכונים">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Karantina:wght@400;700&family=Playpen+Sans+Hebrew:wght@400;500&display=swap">
-<link rel="stylesheet" href="style.css">
+<link rel="preload" href="fonts/rubik.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
-<div id="app" dir="rtl" lang="he">
-<header class="top">
-  <div class="wrap">
-    <div class="brand">
-      <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20" fill="var(--surface)" stroke="var(--rim)" stroke-width="3"/><circle cx="22" cy="22" r="13" fill="none" stroke="var(--rim)" stroke-width="1.2" opacity=".5"/><path d="M15 25c2.5 3 11.5 3 14 0" fill="none" stroke="var(--yolk)" stroke-width="2.4" stroke-linecap="round"/><path d="M17 18.5v1.5M27 18.5v1.5" stroke="var(--rim)" stroke-width="2.4" stroke-linecap="round"/></svg>
-      <div><h1>מחברת המתכונים</h1><small id="countLine">כל המתכונים שלכם במקום אחד</small></div>
-    </div>
-    <div class="actions">
-      <button class="btn primary" id="bScan" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>סריקת תמונות</button>
-      <button class="btn" id="bNew" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>מתכון <span class="lbl-long">חדש</span></span></button>
-      <button class="btn" id="bFind" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><span>חיפוש <span class="lbl-long">מתכון</span></span></button>
-      <button class="btn icon-btn" id="bMenu" type="button" aria-label="שיתוף, גיבוי והגדרות"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    </div>
+<a class="skip" href="#list">דילוג לרשימת המתכונים</a>
+<header class="hero">
+ <div class="wrap">
+  <h1>המתכונים של תפארת 🧁</h1>
+  <p><span id="heroCount">205</span> מתכונים של המשפחה – מהמחברת, מהחוברות, מהטלפון ומהסרטונים – במקום אחד</p>
+  <div class="search" role="search" id="searchBox">
+   <span class="ico" aria-hidden="true">🔍</span>
+   <input id="q" type="search" inputmode="search" enterkeyhint="search" placeholder="חיפוש מתכון או מצרך…" aria-label="חיפוש מתכון או מצרך" autocomplete="off">
+   <button id="qx" type="button" aria-label="ניקוי החיפוש">✕</button>
   </div>
-  <div class="wrap searchrow">
-    <label class="search"><span class="vh">חיפוש במחברת</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>
-      <input id="q" type="search" placeholder="חיפוש לפי שם, מצרך או תגית… למשל: חציל" autocomplete="off">
-    </label>
-    <label><span class="vh">מיון</span><select id="sort" class="mini"><option value="new">החדשים קודם</option><option value="az">לפי א–ב</option></select></label>
+  <div class="chips" id="chips" role="group" aria-label="סינון לפי כשרות"></div>
+  <div class="herobtns">
+   <button class="add" id="bNew" type="button">➕ הוספת מתכון</button>
+   <button class="photoadd" id="bScan" type="button">📸 הוספת מתכון מתמונה</button>
+   <button id="bFind" type="button">🔎 חיפוש מתכון באינטרנט</button>
+   <button id="bShare" type="button">📤 שיתוף</button>
+   <button id="bMenu" type="button">⚙️ גיבוי והגדרות</button>
   </div>
+ </div>
 </header>
-
-<div class="wrap">
-  <nav class="tabs" id="tabs" aria-label="קטגוריות"></nav>
-  <div id="notices"></div>
-</div>
-<main class="wrap" id="main"></main>
-</div>
+<main class="wrap">
+ <div id="notices"></div>
+ <h2 class="sec">קטגוריות</h2>
+ <div class="tiles" id="tiles"></div>
+ <section id="list" aria-live="polite">
+  <div class="listhead"><h2 id="listTitle">כל המתכונים</h2>
+   <span class="lhtools"><button class="clear" id="shareCat" type="button" hidden>📤 שיתוף הנושא</button><button class="clear" id="clear" type="button" hidden>ניקוי סינון</button>
+    <label><span class="vh">מיון</span><select id="sort" class="sortsel"><option value="new">החדשים קודם</option><option value="az">לפי א–ב</option></select></label>
+    <span class="count" id="count"></span></span></div>
+  <ul class="grid" id="grid"></ul>
+  <p class="empty" id="empty" hidden>לא נמצאו מתכונים 🙈 נסו מילה אחרת או נקו את הסינון</p>
+ </section>
+</main>
+<footer>נבנה באהבה עבור תפארת והמשפחה · כל מתכון כולל את המקור שלו<div class="footlinks"><span id="countLine"></span></div></footer>
 
 <div class="layer" id="layer" hidden></div>
 <div class="toast" id="toast" hidden role="status"></div>
@@ -53,7 +56,6 @@
 <input type="file" id="fFiles" accept="image/*" multiple hidden>
 <input type="file" id="fPhoto" accept="image/*" hidden>
 <input type="file" id="fJson" accept=".json,application/json" hidden>
-
-<script src="app.js"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

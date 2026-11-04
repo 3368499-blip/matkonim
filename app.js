@@ -30,61 +30,69 @@ function downloadFile(name, text, type = "application/json") {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-/* ---------- categories ---------- */
+/* ---------- categories (the family book's own, plus a few more) ---------- */
 const BASE_CATS = [
-  {id:"starters", name:"מנות ראשונות", h:8},
-  {id:"soups", name:"מרקים", h:28},
-  {id:"salads", name:"סלטים", h:118},
-  {id:"mains", name:"עיקריות", h:352},
-  {id:"sides", name:"תוספות", h:42},
-  {id:"breakfast", name:"ארוחות בוקר", h:52},
-  {id:"baking", name:"מאפים ולחמים", h:24},
-  {id:"cakes", name:"עוגות ועוגיות", h:330},
-  {id:"desserts", name:"קינוחים", h:290},
-  {id:"sauces", name:"רטבים וממרחים", h:88},
-  {id:"drinks", name:"משקאות", h:192},
-  {id:"other", name:"אחר", h:215},
+  {id:"bread", name:"מאפים ולחמים", short:"מאפים", emoji:"🥐", color:"#ffe6d5"},
+  {id:"cakes", name:"עוגות", short:"עוגות", emoji:"🎂", color:"#fde2e7"},
+  {id:"cookies", name:"עוגיות", short:"עוגיות", emoji:"🍪", color:"#fff3c4"},
+  {id:"desserts", name:"קינוחים", short:"קינוחים", emoji:"🍮", color:"#ebe4fa"},
+  {id:"first", name:"מנות ראשונות", short:"ראשונות", emoji:"🥟", color:"#dcf2e3"},
+  {id:"salads", name:"סלטים", short:"סלטים", emoji:"🥗", color:"#e4f5d2"},
+  {id:"main", name:"מנות עיקריות", short:"עיקריות", emoji:"🍲", color:"#dcedfb"},
+  {id:"sides", name:"תוספות", short:"תוספות", emoji:"🍚", color:"#f3ead9"},
+  {id:"soups", name:"מרקים", short:"מרקים", emoji:"🍜", color:"#fde8d8"},
+  {id:"breakfast", name:"ארוחות בוקר", short:"בוקר", emoji:"🍳", color:"#fff0d9"},
+  {id:"sauces", name:"רטבים וממרחים", short:"רטבים", emoji:"🫙", color:"#e9f0dc"},
+  {id:"drinks", name:"משקאות", short:"משקאות", emoji:"🥤", color:"#e0f1f5"},
+  {id:"other", name:"אחר", short:"אחר", emoji:"📒", color:"#efe6ee"},
 ];
+const OLD_CAT = {starters: "first", mains: "main", baking: "bread"}; // ids used by the first version
+const PESACH = {id: "pesach", name: "פסח", emoji: "🍷", color: "#e6f3f7"};
+const KASH = {parve: "פרווה", dairy: "חלבי", meat: "בשרי"};
+const KASH_EMOJI = {parve: "🌿", dairy: "🥛", meat: "🍗"};
+const CAT_COLORS = ["#fde2e7", "#dcf2e3", "#ebe4fa", "#ffe6d5", "#dcedfb", "#fff3c4", "#e4f5d2", "#f3ead9"];
 let customCats = [];
 const cats = () => [...BASE_CATS.slice(0, -1), ...customCats, BASE_CATS[BASE_CATS.length - 1]];
-const catById = id => cats().find(c => c.id === id) || BASE_CATS[BASE_CATS.length - 1];
+const catById = id => cats().find(c => c.id === (OLD_CAT[id] || id)) || BASE_CATS[BASE_CATS.length - 1];
 function catFromName(name) {
   const n = String(name || "").trim();
   const all = cats();
-  return (all.find(c => c.name === n) || all.find(c => n && (c.name.includes(n) || n.includes(c.name))) || all.find(c => c.id === n) || catById("other")).id;
+  return (all.find(c => c.name === n || c.short === n) || all.find(c => n && (c.name.includes(n) || n.includes(c.name))) || all.find(c => c.id === (OLD_CAT[n] || n)) || catById("other")).id;
 }
 const catNames = () => cats().map(c => c.name).join(", ");
 
 /* keyword sorting, used when there is no Gemini key */
 const CAT_WORDS = {
-  cakes: ["עוגה","עוגת","עוגות","עוגיות","עוגייה","עוגיה","בראוניז","מאפינס","קאפקייקס","טארט","רולדה","cake","cookie","brownie","muffin"],
+  cakes: ["עוגה","עוגת","עוגות","טארט","רולדה","מאפינס","בראוניז","cake","cheesecake","brownie","muffin"],
+  cookies: ["עוגיות","עוגייה","עוגיה","ביסקוטי","מקרונים","מעמולים","cookie","biscotti"],
   desserts: ["קינוח","מוס","פודינג","גלידה","פנקוטה","טירמיסו","סורבה","מלבי","קרם ברולה","פבלובה","dessert","mousse","pudding"],
-  baking: ["לחם","חלה","חלות","פיתות","פיתה","בורקס","מאפה","מאפים","בצק עלים","פיצה","פוקאצ'ה","לחמניות","קיש","בייגל","שמרים","bread","pizza","quiche"],
+  bread: ["לחם","חלה","חלות","פיתות","פיתה","בורקס","מאפה","מאפים","בצק עלים","פיצה","פוקאצ'ה","לחמניות","קיש","בייגל","שמרים","רוגלך","bread","pizza","quiche"],
   soups: ["מרק","soup"],
   salads: ["סלט","salad"],
   breakfast: ["שקשוקה","חביתה","פנקייק","פנקייקים","גרנולה","דייסה","טוסט","בלינצ'ס","לביבות","breakfast","pancake","omelet"],
   sauces: ["רוטב","ממרח","מטבל","טחינה","איולי","פסטו","ריבה","חומוס","מיונז","sauce","dip","spread","jam"],
   drinks: ["משקה","שייק","לימונדה","קוקטייל","סמוטי","ליקר","drink","smoothie","shake","lemonade"],
   sides: ["אורז","פתיתים","תפוחי אדמה","תפו\"א","קוסקוס","פירה","קינואה","בורגול","ירקות צלויים","מג'דרה","rice","potato","couscous"],
-  mains: ["עוף","בשר","בקר","דג ","דגים","סלמון","קציצות","שניצל","תבשיל","צלי","הודו","פרגית","חזה","שוקיים","כרעיים","לזניה","פסטה","ממולאים","חמין","צ'ולנט","מוקפץ","אנטריקוט","chicken","beef","fish","salmon","pasta","stew"],
-  starters: ["כבד קצוץ","חצילים","פטה","קרפצ'יו","טרטר","סביצ'ה","מנה ראשונה","סיגרים","appetizer","starter"],
+  main: ["עוף","בשר","בקר","דג ","דגים","סלמון","קציצות","שניצל","תבשיל","צלי","הודו","פרגית","חזה","שוקיים","כרעיים","לזניה","פסטה","ממולאים","חמין","צ'ולנט","מוקפץ","אנטריקוט","chicken","beef","fish","salmon","pasta","stew"],
+  first: ["כבד קצוץ","חצילים","פטה","קרפצ'יו","טרטר","סביצ'ה","מנה ראשונה","סיגרים","appetizer","starter"],
 };
 function guessCat(title, text) {
   const T = (" " + String(title || "") + " ").toLowerCase(), X = (" " + String(text || "") + " ").toLowerCase();
   let best = "other", score = 0;
   for (const [id, words] of Object.entries(CAT_WORDS)) {
-    let s = 0;
-    for (const w of words) { if (T.includes(w)) s += 4; const m = X.split(w).length - 1; s += Math.min(m, 3); }
-    if (s > score) { score = s; best = id; }
+    let sc = 0;
+    for (const w of words) { if (T.includes(w)) sc += 4; const m = X.split(w).length - 1; sc += Math.min(m, 3); }
+    if (sc > score) { score = sc; best = id; }
   }
   return best;
 }
-function guessTags(text) {
-  const t = String(text || ""); const out = [];
-  if (/חמאה|שמנת|גבינ|חלב(?!ון)|יוגורט|butter|cream|cheese|milk/i.test(t)) out.push("חלבי");
-  else if (/עוף|בשר|בקר|הודו|פרגית|שוקיים|chicken|beef|meat/i.test(t)) out.push("בשרי");
-  return out;
+function guessKashrut(text) {
+  const t = String(text || "");
+  if (/(^|\s)(חמאה|שמנת|גבינ\S*|חלב(?!ון)|יוגורט|מוצרלה|פרמזן|לבנה|butter|cream|cheese|milk)/i.test(t)) return "dairy";
+  if (/(^|\s)(עוף|בשר|בקר|הודו|פרגית|שוקיים|כרעיים|טחון|נקניק\S*|chicken|beef|meat)/i.test(t)) return "meat";
+  return "parve";
 }
+function guessTags() { return []; }
 
 /* ---------- local storage (IndexedDB, falls back to memory) ---------- */
 const Store = {
@@ -141,15 +149,17 @@ function askPersist() { if (persistAsked) return; persistAsked = true; try { nav
 
 /* ---------- images ---------- */
 const imgCache = new Map();
+const isPath = id => typeof id === "string" && /^(img\/|https?:|data:|blob:)/.test(id);
 async function getImg(id) {
   if (!id) return null;
+  if (isPath(id)) return id;
   if (imgCache.has(id)) return imgCache.get(id);
   const r = await Store.get("images", id);
   if (r) imgCache.set(id, r.data);
   return r ? r.data : null;
 }
 async function putImg(data, id = rid("i")) { imgCache.set(id, data); await Store.put("images", {id, data}); return id; }
-async function delImg(id) { if (!id) return; imgCache.delete(id); await Store.del("images", id); }
+async function delImg(id) { if (!id || isPath(id)) return; imgCache.delete(id); await Store.del("images", id); }
 
 async function decode(file) {
   try { if (window.createImageBitmap) return await createImageBitmap(file, {imageOrientation: "from-image"}); } catch {}
@@ -326,7 +336,7 @@ function aiErr(e) {
   if (c === "ocr_load") return "לא הצלחתי להוריד את מנוע הזיהוי. צריך חיבור לאינטרנט בפעם הראשונה.";
   return "משהו השתבש. נסו שוב.";
 }
-const RECIPE_SHAPE = () => `{"title": string, "category": one of [${catNames()}], "servings": string or "", "time": string or "", "ingredients": [strings, one ingredient per line with its quantity as written; a sub-heading such as "לבצק" as "## לבצק"], "steps": [strings, one step each, no numbering; a sub-heading as "## ..."], "notes": string (tips, the writer's remarks, variations; "" if none), "tags": [up to 4 short Hebrew tags such as "פרווה","חלבי","בשרי","טבעוני","ללא גלוטן","חגים","מהיר"]}`;
+const RECIPE_SHAPE = () => `{"title": string, "category": one of [${catNames()}], "servings": string or "", "time": string or "", "ingredients": [strings, one ingredient per line with its quantity as written; a sub-heading such as "לבצק" as "## לבצק"], "steps": [strings, one step each, no numbering; a sub-heading as "## ..."], "notes": string (tips, the writer's remarks, variations; "" if none), "kashrut": "parve" | "dairy" | "meat" (dairy if any milk product, meat if any meat or poultry, otherwise parve), "pesach": true if it suits Passover as written (no flour, bread, pasta or leavening), else false, "intro": one short sentence about the dish if the source gives one, else "", "temp": the oven temperature if given, else "", "tags": [up to 3 short Hebrew tags such as "טבעוני","ללא גלוטן","חגים","מהיר"]}`;
 
 /* ---------- built-in reader: OCR in the browser ---------- */
 const Local = {
@@ -438,125 +448,123 @@ function parseRecipeText(raw, hintTitle) {
   if (steps.length === 1 && steps[0].length > 160) finalSteps = steps[0].split(/(?<=[.!?])\s+/).filter(Boolean);
   if (!title) title = String(hintTitle || "").replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ").trim();
   if (!title || /^(img|dsc|pxl|screenshot|צילום מסך)/i.test(title) || /^\d[\d\s]+$/.test(title)) title = "מתכון מסריקה";
-  return {title, ingredients, steps: finalSteps, notes: notes.join("\n"), category: guessCat(title, raw), tags: guessTags(raw)};
+  return {title, ingredients, steps: finalSteps, notes: notes.join("\n"), category: guessCat(title, raw), k: guessKashrut(raw), tags: guessTags(raw)};
 }
 
 function normRecipe(o, extra = {}) {
   const arr = v => Array.isArray(v) ? v.map(x => String(x ?? "").trim()).filter(Boolean) : String(v || "").split("\n").map(s => s.trim()).filter(Boolean);
-  const category = cats().some(c => c.id === o.category) ? o.category : catFromName(o.category);
+  const cid = OLD_CAT[o.category] || o.category;
+  const category = cats().some(c => c.id === cid) ? cid : catFromName(o.category);
+  let k = String(o.k || o.kashrut || "").trim();
+  k = {"פרווה": "parve", "חלבי": "dairy", "בשרי": "meat"}[k] || (KASH[k] ? k : "");
   return Object.assign({
-    id: rid(), title: String(o.title || "מתכון ללא שם").trim(), category,
-    servings: String(o.servings || "").trim(), time: String(o.time || "").trim(),
-    ingredients: arr(o.ingredients), steps: arr(o.steps), notes: String(o.notes || "").trim(),
-    tags: arr(o.tags).slice(0, 6), photo: null, sourceImgs: [], source: {type: "manual"},
+    id: rid(), title: String(o.title || "מתכון ללא שם").trim(), category, k, pesach: !!o.pesach,
+    intro: String(o.intro || "").trim(), byline: String(o.byline || "").trim(), credit: String(o.credit || "").trim(),
+    temp: String(o.temp || "").trim(), servings: String(o.servings || "").trim(), time: String(o.time || "").trim(),
+    ingredients: arr(o.ingredients), steps: arr(o.steps), notes: String(o.notes || "").trim(), alerts: arr(o.alerts),
+    tags: arr(o.tags).slice(0, 6), photo: null, photos: [], thumb: "", sourceImgs: [], video: "", source: {type: "manual"},
     fav: false, fresh: false, createdAt: now(), updatedAt: now(),
   }, extra);
 }
 
 /* ---------- app state ---------- */
-const S = {recipes: [], cat: "all", fav: false, q: "", sort: "new"};
+const S = {recipes: [], cat: "all", k: "", fav: false, q: "", sort: "new"};
 
 async function saveRecipe(r, {quiet} = {}) {
   r.updatedAt = now();
   const i = S.recipes.findIndex(x => x.id === r.id);
   if (i >= 0) S.recipes[i] = r; else S.recipes.push(r);
   await Store.put("recipes", clone(r));
-  if (!r.sample) askPersist();
+  if (!r.builtin) askPersist();
   if (!quiet) render();
 }
 async function deleteRecipe(id) {
   const r = S.recipes.find(x => x.id === id); if (!r) return;
   S.recipes = S.recipes.filter(x => x.id !== id);
   await Store.del("recipes", id);
-  for (const im of [r.photo, ...(r.sourceImgs || [])].filter(Boolean)) {
-    if (!S.recipes.some(o => o.photo === im || (o.sourceImgs || []).includes(im))) await delImg(im);
+  if (r.builtin) { const d = await meta.get("deletedBuiltins", []); if (!d.includes(id)) { d.push(id); await meta.set("deletedBuiltins", d); } }
+  for (const im of [r.photo, ...(r.photos || []), ...(r.sourceImgs || [])].filter(Boolean)) {
+    if (!S.recipes.some(o => o.photo === im || (o.photos || []).includes(im) || (o.sourceImgs || []).includes(im))) await delImg(im);
   }
   render();
 }
 
-/* ---------- example recipes for a first visit ---------- */
-const SAMPLES = [
-  {title:"שקשוקה של שבת בבוקר", category:"breakfast", servings:"4", time:"30 דקות", tags:["פרווה","מהיר"],
-   ingredients:["3 כפות שמן זית","1 בצל בינוני קצוץ","1 פלפל אדום חתוך לרצועות","4 שיני שום פרוסות","6 עגבניות בשלות מגוררות","1 כף רסק עגבניות","1 כפית פפריקה מתוקה","½ כפית כמון","מלח ופלפל לפי הטעם","6 ביצים","פטרוזיליה קצוצה להגשה"],
-   steps:["מחממים שמן במחבת רחבה ומטגנים את הבצל והפלפל עד שמתרככים, כ-8 דקות.","מוסיפים שום, פפריקה וכמון ומערבבים דקה.","מוסיפים עגבניות ורסק, מתבלים ומבשלים על אש בינונית 12 דקות עד שהרוטב מסמיך.","יוצרים גומות בכף ושוברים לתוכן את הביצים.","מכסים ומבשלים 5–7 דקות עד שהחלבון מתייצב והחלמון עדיין רך.","מפזרים פטרוזיליה ומגישים עם לחם טרי."],
-   notes:"סבתא הוסיפה תמיד קורט סוכר לעגבניות חמוצות. מי שאוהב חריף – חצי פלפל חריף עם הבצל."},
-  {title:"אורז לבן עם אטריות", category:"sides", servings:"6", time:"35 דקות", tags:["פרווה","טבעוני"],
-   ingredients:["2 כוסות אורז פרסי","½ כוס אטריות דקות (פידאוס)","3 כפות שמן","3½ כוסות מים רותחים","1½ כפיות מלח"],
-   steps:["שוטפים את האורז היטב ומסננים.","מחממים שמן בסיר ומשחימים את האטריות עד שהן זהובות.","מוסיפים את האורז ומערבבים דקה עד שכל הגרגרים מצופים בשמן.","מוסיפים מים ומלח, מביאים לרתיחה ומנמיכים לאש הקטנה ביותר.","מבשלים מכוסה 18 דקות, מכבים ומשאירים מכוסה עוד 10 דקות.","מפרידים במזלג לפני ההגשה."],
-   notes:"לא לפתוח את המכסה בזמן הבישול!"},
-  {title:"עוגת תפוזים בחושה", category:"cakes", servings:"תבנית 26 ס\"מ", time:"15 דקות הכנה + 45 אפייה", tags:["פרווה","בחושה"],
-   ingredients:["## לעוגה","4 ביצים","1½ כוסות סוכר","1 כוס שמן","1 כוס מיץ תפוזים טבעי","גרידה מ-2 תפוזים","2½ כוסות קמח תופח","## לסירופ","½ כוס מיץ תפוזים","3 כפות סוכר"],
-   steps:["מחממים תנור ל-170 מעלות ומשמנים תבנית.","טורפים ביצים וסוכר עד שהתערובת בהירה.","מוסיפים שמן, מיץ וגרידה וטורפים קלות.","מוסיפים את הקמח ומערבבים רק עד שאין גושים.","אופים כ-45 דקות עד שקיסם יוצא יבש.","מרתיחים מיץ וסוכר לסירופ ויוצקים על העוגה החמה."],
-   notes:"נשמרת לחה 4 ימים בקופסה סגורה."},
-];
+/* ---------- the family's recipes, built in for everyone ---------- */
+async function loadBuiltins() {
+  let data;
+  try { const res = await fetch("builtin.json", {cache: "no-cache"}); if (!res.ok) return false; data = await res.json(); } catch { return false; }
+  const ver = data.version || 1;
+  if ((await meta.get("builtinVer", 0)) >= ver) return false;
+  const deleted = new Set(await meta.get("deletedBuiltins", []));
+  const have = new Set(S.recipes.map(r => r.id));
+  for (const o of data.recipes || []) {
+    if (have.has(o.id) || deleted.has(o.id)) continue;
+    const r = normRecipe(o, {id: o.id, builtin: true, photo: o.photo || null, photos: o.photos || [], thumb: o.thumb || "",
+      sourceImgs: o.sourceImgs || [], video: o.video || "", source: o.source || {type: "family"}, createdAt: o.order || 0, updatedAt: 0});
+    S.recipes.push(r); await Store.put("recipes", clone(r));
+  }
+  for (const r of S.recipes.filter(r => r.sample)) await Store.del("recipes", r.id); // the old example recipes
+  S.recipes = S.recipes.filter(r => !r.sample);
+  await meta.set("builtinVer", ver);
+  return true;
+}
 
-/* ---------- rendering: library ---------- */
-const cleanQ = s => s.toLowerCase().replace(/[֑-ׇ]/g, "").trim();
+/* ---------- rendering: home page ---------- */
+const cleanQ = s => String(s || "").toLowerCase().replace(/[֑-ׇ]/g, "").trim();
 function visible() {
-  let list = S.recipes.slice();
-  if (S.fav) list = list.filter(r => r.fav);
+  let list = S.recipes.filter(r => (S.cat === "all" || (S.cat === "pesach" ? r.pesach : r.category === S.cat)) && (!S.k || r.k === S.k) && (!S.fav || r.fav));
   if (S.q) {
     const words = cleanQ(S.q).split(/\s+/).filter(Boolean);
     list = list.filter(r => {
-      const hay = cleanQ([r.title, catById(r.category).name, ...(r.tags || []), ...(r.ingredients || []), r.notes].join(" "));
+      const hay = cleanQ([r.title, catById(r.category).name, r.intro, r.credit, r.byline, KASH[r.k], ...(r.tags || []), ...(r.ingredients || []), r.notes].join(" "));
       return words.every(w => hay.includes(w));
     });
   }
   list.sort(S.sort === "az" ? (a, b) => a.title.localeCompare(b.title, "he") : (a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   return list;
 }
-function plateLetter(t) { const m = String(t || "").match(/[\p{L}\p{N}]/u); return m ? m[0] : "•"; }
+function imgAttr(id) { return isPath(id) ? `src="${esc(id)}"` : `data-img="${esc(id)}"`; }
 function cardHTML(r) {
   const c = catById(r.category);
-  const metaTxt = [r.time, r.servings && ("מנות: " + r.servings)].filter(Boolean).map(esc).join(" · ");
-  return `<button class="card" type="button" style="--h:${c.h}" data-open="${esc(r.id)}">
-    <div class="thumb">${r.photo ? `<img alt="" data-img="${esc(r.photo)}">` : `<div class="plate"><span>${esc(plateLetter(r.title))}</span></div>`}
-      <div class="badges">${r.sample ? `<span class="badge">דוגמה</span>` : ""}${r.fresh ? `<span class="badge new">חדש · לבדיקה</span>` : ""}${r.fav ? `<span class="badge star" aria-label="מועדף">★</span>` : ""}</div></div>
-    <div class="card-b"><h3>${esc(r.title)}</h3><div class="meta">${S.cat === "all" && (S.q || S.fav) ? `<span>${esc(c.name)}</span>` : ""}${metaTxt ? `<span>${metaTxt}</span>` : ""}</div></div>
-  </button>`;
+  const img = r.thumb || r.photo || (r.photos || [])[0] || (r.sourceImgs || [])[0];
+  const scan = !r.photo && !(r.photos || []).length && !!img;
+  return `<li><button class="card" type="button" data-open="${esc(r.id)}">
+    <div class="ph${scan ? " scanph" : ""}" style="--c:${c.color}">${img ? `<img alt="" loading="lazy" decoding="async" ${imgAttr(img)}>` : esc(c.emoji)}${r.fresh ? `<span class="flag new">חדש · לבדיקה</span>` : ""}${r.fav ? `<span class="star" aria-label="מועדף">★</span>` : ""}</div>
+    <div class="body"><h3>${esc(r.title)}</h3><div class="badges">${r.k ? `<span class="badge k-${r.k}">${KASH[r.k]}</span>` : ""}<span class="badge">${esc(c.short || c.name)}</span>${r.video ? `<span class="badge" title="יש סרטון">🎬</span>` : ""}</div></div>
+  </button></li>`;
 }
-function renderTabs() {
+function renderChips() {
+  const favN = S.recipes.filter(r => r.fav).length, pesN = S.recipes.filter(r => r.pesach).length;
+  let h = `<button class="chip" type="button" data-k="" aria-pressed="${!S.k && !S.fav}">הכל</button>`;
+  for (const k of ["parve", "dairy", "meat"]) h += `<button class="chip ${k}" type="button" data-k="${k}" aria-pressed="${S.k === k}">${KASH_EMOJI[k]} ${KASH[k]}</button>`;
+  if (pesN) h += `<button class="chip pes" type="button" data-c="pesach" aria-pressed="${S.cat === "pesach"}">🍷 פסח</button>`;
+  if (favN) h += `<button class="chip fav" type="button" data-fav="1" aria-pressed="${S.fav}">⭐ מועדפים</button>`;
+  $("#chips").innerHTML = h;
+}
+function renderTiles() {
   const counts = {}; for (const r of S.recipes) counts[r.category] = (counts[r.category] || 0) + 1;
-  const favN = S.recipes.filter(r => r.fav).length;
-  let html = `<button type="button" class="tab all" data-cat="all" aria-pressed="${S.cat === "all" && !S.fav}">הכל <span class="n">${S.recipes.length}</span></button>`;
-  if (favN) html += `<button type="button" class="tab fav" data-fav="1" aria-pressed="${S.fav}">★ מועדפים <span class="n">${favN}</span></button>`;
-  for (const c of cats()) {
-    const n = counts[c.id] || 0;
-    html += `<button type="button" class="tab${n ? "" : " empty"}" style="--h:${c.h}" data-cat="${esc(c.id)}" aria-pressed="${S.cat === c.id}">${esc(c.name)} <span class="n">${n}</span></button>`;
-  }
-  $("#tabs").innerHTML = html;
+  const pesN = S.recipes.filter(r => r.pesach).length;
+  const tile = (c, n) => `<button class="tile" type="button" style="--c:${c.color}" data-cat="${esc(c.id)}" aria-pressed="${S.cat === c.id}"><span class="em" aria-hidden="true">${esc(c.emoji)}</span><b>${esc(c.name)}</b><small>${n} מתכונים</small></button>`;
+  let h = cats().filter(c => counts[c.id] || customCats.includes(c)).map(c => tile(c, counts[c.id] || 0)).join("");
+  if (pesN) h += tile(PESACH, pesN);
+  $("#tiles").innerHTML = h;
 }
 function renderNotices() {
-  const box = $("#notices"); let html = "";
-  if (S.recipes.some(r => r.sample)) html += `<div class="notice"><p>אלה מתכוני דוגמה כדי לראות איך זה נראה. סרקו תיקיית תמונות או הוסיפו מתכון משלכם.</p><button class="btn sm" type="button" data-act="clearSamples">הסרת הדוגמאות</button></div>`;
-  if (!Store.ok) html += `<div class="notice warn"><p>הדפדפן הזה לא מאפשר שמירה קבועה (אולי חלון גלישה פרטית). המתכונים יישמרו רק עד שתסגרו את הדף – שמרו גיבוי מהתפריט.</p></div>`;
-  box.innerHTML = html;
+  $("#notices").innerHTML = Store.ok ? "" : `<div class="notice"><p>הדפדפן הזה לא מאפשר שמירה קבועה (אולי חלון גלישה פרטית). מה שתוסיפו יישמר רק עד שתסגרו את הדף – שמרו גיבוי מהתפריט.</p></div>`;
 }
 function render() {
-  renderTabs(); renderNotices();
-  const n = S.recipes.filter(r => !r.sample).length;
-  $("#countLine").textContent = n ? `${n} מתכונים במחברת` : "כל המתכונים שלכם במקום אחד";
-  const list = visible(); const main = $("#main");
-  if (!S.recipes.length) {
-    main.innerHTML = `<div class="empty-state"><h2>המחברת ריקה</h2><p>התחילו בסריקת תיקייה של צילומים: האפליקציה תזהה מה מהן מתכונים, תקליד אותם ותמיין לקטגוריות.</p><p><button class="btn primary" type="button" data-act="scan">סריקת תמונות</button></p></div>`;
-    return;
-  }
-  if (!list.length) { main.innerHTML = `<div class="empty-state"><h2>לא נמצא</h2><p>אין מתכון שמתאים לחיפוש. אפשר לחפש באינטרנט.</p><p><button class="btn" type="button" data-act="find">חיפוש מתכון</button></p></div>`; return; }
-  let html = "";
-  if (S.cat === "all" && !S.q && !S.fav) {
-    for (const c of cats()) {
-      const items = list.filter(r => r.category === c.id); if (!items.length) continue;
-      html += `<section class="sec"><div class="sec-h" style="--h:${c.h}"><h2>${esc(c.name)}</h2><span class="n">${items.length}</span><span class="sp"></span><button class="btn ghost sm" type="button" data-share-cat="${esc(c.id)}">שיתוף הנושא</button></div><div class="grid">${items.map(cardHTML).join("")}</div></section>`;
-    }
-  } else {
-    const items = S.cat === "all" ? list : list.filter(r => r.category === S.cat);
-    const c = S.cat === "all" ? null : catById(S.cat);
-    const title = S.q ? `תוצאות עבור "${esc(S.q)}"` : S.fav ? "מועדפים" : esc(c.name);
-    html = `<section class="sec"><div class="sec-h" style="--h:${c ? c.h : 220}"><h2>${title}</h2><span class="n">${items.length}</span><span class="sp"></span>${c && items.length ? `<button class="btn ghost sm" type="button" data-share-cat="${esc(c.id)}">שיתוף הנושא</button>` : ""}</div>
-      ${items.length ? `<div class="grid">${items.map(cardHTML).join("")}</div>` : `<p class="hint">עוד אין כאן מתכונים.</p>`}</section>`;
-  }
-  main.innerHTML = html;
-  fillImgs(main);
+  renderChips(); renderTiles(); renderNotices();
+  $("#heroCount").textContent = S.recipes.length;
+  const list = visible();
+  let title = S.q ? `תוצאות עבור "${S.q}"` : S.cat === "pesach" ? "פסח" : S.cat !== "all" ? catById(S.cat).name : S.fav ? "מועדפים" : "כל המתכונים";
+  if (S.k) title += ` · ${KASH[S.k]}`;
+  $("#listTitle").textContent = title;
+  $("#count").textContent = `${list.length} מתכונים`;
+  $("#clear").hidden = !(S.cat !== "all" || S.k || S.fav || S.q);
+  $("#shareCat").hidden = !(S.cat !== "all" && list.length);
+  $("#grid").innerHTML = list.map(cardHTML).join("");
+  $("#empty").hidden = list.length > 0;
+  fillImgs($("#grid"));
 }
 function fillImgs(root) {
   $$("img[data-img]", root).forEach(async im => { const d = await getImg(im.dataset.img); if (d) im.src = d; else im.remove(); });
@@ -564,95 +572,114 @@ function fillImgs(root) {
 
 /* ---------- layers ---------- */
 let layerOnClose = null;
-function openLayer(html, {narrow, onClose} = {}) {
+function openLayer(html, {narrow, onClose, page} = {}) {
   const L = $("#layer");
-  L.innerHTML = `<div class="panel${narrow ? " narrow" : ""}" role="dialog" aria-modal="true">${html}</div>`;
+  L.classList.toggle("page", !!page);
+  L.innerHTML = `<div class="dlg${narrow ? " narrow" : ""}" role="dialog" aria-modal="true">${html}</div>`;
   L.hidden = false; document.body.style.overflow = "hidden";
   layerOnClose = onClose || null;
   L.scrollTop = 0;
   const f = $("[autofocus]", L); if (f) f.focus();
-  return $(".panel", L);
+  return $(".dlg", L);
 }
 function closeLayer() {
   const L = $("#layer"); if (L.hidden) return;
   if (layerOnClose) { try { layerOnClose(); } catch {} layerOnClose = null; }
-  L.hidden = true; L.innerHTML = ""; document.body.style.overflow = "";
+  L.hidden = true; L.innerHTML = ""; L.classList.remove("page"); document.body.style.overflow = "";
   if (location.hash) history.replaceState(null, "", location.pathname + location.search);
 }
 $("#layer").addEventListener("mousedown", e => { if (e.target.id === "layer") closeLayer(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeLayer(); });
-const head = t => `<div class="panel-h"><h2>${t}</h2><button class="btn icon-btn ghost close" type="button" data-act="close" aria-label="סגירה"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+const head = t => `<div class="panel-h"><h2>${t}</h2><button class="btn icon-btn ghost close" type="button" data-act="close" aria-label="סגירה">✕</button></div>`;
 const dots = txt => `<div class="thinking"><span class="dots"><i></i><i></i><i></i></span> ${txt}</div>`;
 
-/* ---------- recipe view ---------- */
-function linesHTML(lines, kind) {
-  return lines.map((l, i) => {
-    if (/^#{1,3}\s*/.test(l) || (/[:：]$/.test(l) && l.length < 40 && kind === "ing")) return `<li class="grp">${esc(l.replace(/^#{1,3}\s*/, "").replace(/[:：]$/, ""))}</li>`;
-    return kind === "ing" ? `<li data-i="${i}"><span class="box" aria-hidden="true"></span><span>${esc(l)}</span></li>` : `<li>${esc(l)}</li>`;
-  }).join("");
+/* ---------- recipe page ---------- */
+const isGroup = (l, kind) => /^#{1,3}\s*/.test(l) || (kind === "ing" && /[:：]$/.test(l) && l.length < 40);
+const groupName = l => l.replace(/^#{1,3}\s*/, "").replace(/[:：]$/, "");
+function ingHTML(lines) {
+  let out = "", cur = [];
+  const flush = () => { if (cur.length) out += `<ul class="ing">${cur.map(x => `<li><label><input type="checkbox"><span>${esc(x)}</span></label></li>`).join("")}</ul>`; cur = []; };
+  for (const l of lines) { if (isGroup(l, "ing")) { flush(); out += `<h3>${esc(groupName(l))}</h3>`; } else cur.push(l); }
+  flush(); return out;
+}
+function stepsHTML(lines) {
+  let out = "", cur = [];
+  const flush = () => { if (cur.length) out += `<ol class="steps${cur.length === 1 && /^אין /.test(cur[0]) ? " plain" : ""}">${cur.map(x => `<li>${esc(x)}</li>`).join("")}</ol>`; cur = []; };
+  for (const l of lines) { if (isGroup(l, "st")) { flush(); out += `<h3>${esc(groupName(l))}</h3>`; } else cur.push(l); }
+  flush(); return out;
 }
 function sourceHTML(r) {
   const s = r.source || {};
-  if (s.type === "image") return `מקור: צילום${s.label ? ` "${esc(s.label)}"` : ""}`;
-  if (s.type === "web") return `מקור: ${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label || hostOf(s.url))}</a>` : esc(s.label || "אתר")}${s.alt ? ` · <a href="${esc(s.alt)}" target="_blank" rel="noopener">חיפוש באתר</a>` : ""}`;
-  if (s.type === "claude" || s.type === "ai") return `מקור: הצעה של ${s.type === "claude" ? "Claude" : "Gemini"} מתוך ידע כללי`;
-  if (s.type === "shared") return `מקור: שותף איתכם${s.label ? ` · ${esc(s.label)}` : ""}`;
-  if (s.type === "sample") return "מתכון דוגמה";
-  if (s.type === "text") return "מקור: טקסט שהודבק";
-  return "נכתב ידנית";
+  const link = s.url ? ` · <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(hostOf(s.url) || "קישור")}</a>` : "";
+  if (s.type === "family") return s.label || s.url ? `📌 מקור: ${esc(s.label)}${link}` : "";
+  if (s.type === "image") return `📌 מקור: צילום${s.label ? ` "${esc(s.label)}"` : ""}`;
+  if (s.type === "web") return `📌 מקור: ${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label || hostOf(s.url))}</a>` : esc(s.label || "אתר")}${s.alt ? ` · <a href="${esc(s.alt)}" target="_blank" rel="noopener">חיפוש באתר</a>` : ""}`;
+  if (s.type === "claude" || s.type === "ai") return `📌 מקור: הצעה של ${s.type === "claude" ? "Claude" : "Gemini"} מתוך ידע כללי`;
+  if (s.type === "shared") return `📌 מקור: שותף איתכם${s.label ? ` · ${esc(s.label)}` : ""}`;
+  if (s.type === "text") return "📌 מקור: טקסט שהודבק";
+  return "📌 נכתב ידנית";
 }
+const photosOf = r => [...new Set([r.photo, ...(r.photos || [])].filter(Boolean))];
 function openRecipe(id) {
   const r = S.recipes.find(x => x.id === id); if (!r) return;
   const c = catById(r.category);
+  const photos = photosOf(r);
+  const meta = [r.temp && `🔥 ${r.temp}`, r.time && `⏱️ ${r.time}`, r.servings && `🍽️ ${r.servings}`].filter(Boolean);
+  const notes = String(r.notes || "").split("\n").map(x => x.trim()).filter(Boolean);
+  const more = S.recipes.filter(o => o.id !== r.id && o.category === r.category).slice(0, 4);
+  const src = sourceHTML(r);
   const p = openLayer(`
-    <div class="hero" style="--h:${c.h}">
-      ${r.photo ? `<img alt="תמונת המנה" data-img="${esc(r.photo)}">` : `<div class="plate"><span>${esc(plateLetter(r.title))}</span></div>`}
-      <button class="btn on-img icon-btn hero-close" type="button" data-act="close" aria-label="סגירה"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-      <div class="hero-tools"><button class="btn on-img sm" type="button" data-act="photo">${r.photo ? "החלפת תמונת המנה" : "הוספת תמונה של המנה"}</button>${r.photo ? `<button class="btn on-img sm" type="button" data-act="nophoto">הסרה</button>` : ""}</div>
-      ${r.photo && r.autoPhoto ? `<span class="badge" style="position:absolute;top:14px;right:14px">נלקחה מהתמונה שנסרקה</span>` : ""}
-    </div>
-    <div class="r-head">
-      <div class="chips">
-        <label class="chip" style="--h:${c.h};position:relative">${esc(c.name)} ▾
-          <select data-act="setcat" aria-label="שינוי קטגוריה" style="position:absolute;inset:0;opacity:0;cursor:pointer">${cats().map(x => `<option value="${esc(x.id)}"${x.id === r.category ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
-        ${(r.tags || []).map(t => `<span class="chip plain">${esc(t)}</span>`).join("")}
-        ${r.fresh ? `<span class="chip" style="--h:40">חדש · כדאי לבדוק מול המקור</span>` : ""}
+    <div class="topbar"><div class="wrap"><button class="back" type="button" data-act="close">→ לכל המתכונים</button>
+      <span class="tbtns"><button class="iconbtn" type="button" data-act="fav" aria-label="${r.fav ? "מועדף" : "הוספה למועדפים"}">${r.fav ? "⭐" : "☆"}<span class="tl"> ${r.fav ? "מועדף" : "למועדפים"}</span></button><button class="iconbtn" type="button" data-act="share" aria-label="שיתוף">📤<span class="tl"> שיתוף</span></button><button class="iconbtn" type="button" data-act="edit" aria-label="עריכה">✏️<span class="tl"> עריכה</span></button></span></div></div>
+    <div class="wrap rpage"><article>
+      <div class="gal" style="--c:${c.color}">${photos.length ? `<div class="track">${photos.map(ph => `<figure><img alt="${esc(r.title)}" ${imgAttr(ph)}></figure>`).join("")}</div>${photos.length > 1 ? `<span class="count">${photos.length} תמונות · החליקו</span>` : ""}${r.autoPhoto ? `<span class="auto">נלקחה מהתמונה שנסרקה</span>` : ""}` : `<div class="phx" aria-hidden="true">${esc(c.emoji)}</div>`}</div>
+      <div class="photobtns noprint"><button class="btn sm" type="button" data-act="photo">📷 ${photos.length ? "החלפת התמונה" : "הוספת תמונה של המנה"}</button>${photos.length ? `<button class="btn sm ghost" type="button" data-act="nophoto">הסרת התמונה</button>` : ""}</div>
+      <h1 class="rt">${esc(r.title)}</h1>
+      ${r.intro ? `<p class="intro">${esc(r.intro)}</p>` : ""}
+      ${r.byline ? `<p class="byline">${esc(r.byline)}</p>` : ""}
+      <div class="badges">
+        <label class="badge catsel" style="background:${c.color}">${esc(c.emoji)} ${esc(c.name)} ▾<select data-act="setcat" aria-label="שינוי קטגוריה">${cats().map(x => `<option value="${esc(x.id)}"${x.id === r.category ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
+        ${r.k ? `<span class="badge k-${r.k}">${KASH[r.k]}</span>` : ""}${r.pesach ? `<span class="badge b-pesach">🍷 כשר לפסח</span>` : ""}
+        ${(r.tags || []).map(t => `<span class="badge">${esc(t)}</span>`).join("")}
       </div>
-      <h2 class="r-title">${esc(r.title)}</h2>
-      ${(r.time || r.servings) ? `<div class="facts">${r.time ? `<span>זמן: <b>${esc(r.time)}</b></span>` : ""}${r.servings ? `<span>כמות: <b>${esc(r.servings)}</b></span>` : ""}</div>` : ""}
-      <div class="source">${sourceHTML(r)}${(r.sourceImgs || []).length ? `<button class="btn ghost sm" type="button" data-act="orig">הצגת התמונה המקורית</button>` : ""}</div>
-      <div class="orig" id="orig" hidden>${(r.sourceImgs || []).map(i => `<img alt="התמונה המקורית של המתכון" data-img="${esc(i)}">`).join("")}</div>
-    </div>
-    <div class="r-body">
-      <div><div class="lbl">מצרכים</div>${r.ingredients.length ? `<ul class="ing">${linesHTML(r.ingredients, "ing")}</ul>` : `<p class="hint">לא נרשמו מצרכים.</p>`}</div>
-      <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
-        <div><div class="lbl">אופן ההכנה</div>${r.steps.length ? `<ol class="steps">${linesHTML(r.steps, "step")}</ol>` : `<p class="hint">לא נרשמו שלבים.</p>`}</div>
-        ${r.notes ? `<div><div class="lbl">הערות</div><div class="note">${esc(r.notes)}</div></div>` : ""}
-      </div>
-    </div>
-    <div class="r-actions">
-      <button class="btn primary" type="button" data-act="edit">עריכה</button>
-      <button class="btn" type="button" data-act="fav">${r.fav ? "★ במועדפים" : "☆ למועדפים"}</button>
-      <button class="btn" type="button" data-act="share">שיתוף</button>
-      ${r.fresh ? `<button class="btn" type="button" data-act="ok">בדקתי, הכל נכון</button>` : ""}
-      <button class="btn danger" type="button" data-act="del">מחיקה</button>
-    </div>`);
+      ${meta.length ? `<ul class="meta">${meta.map(m => `<li>${esc(m)}</li>`).join("")}</ul>` : ""}
+      ${(r.alerts || []).map(a => `<p class="knote">${esc(a)}</p>`).join("")}
+      ${r.fresh ? `<div class="fresh noprint"><span>✨ מתכון חדש שנסרק – כדאי לעבור עליו מול התמונה המקורית.</span><button class="btn sm" type="button" data-act="ok">בדקתי, הכל נכון</button></div>` : ""}
+      <section class="panel"><h2>🧺 מצרכים</h2>${r.ingredients.length ? ingHTML(r.ingredients) : `<p class="hint">לא נרשמו מצרכים.</p>`}</section>
+      <section class="panel"><h2>👩‍🍳 אופן ההכנה</h2>${r.steps.length ? stepsHTML(r.steps) + `<p class="noprint hint" style="margin:6px 0 0">טיפ: נגיעה בשלב מסמנת אותו כבוצע</p>` : `<p class="hint">לא נרשם אופן הכנה.</p>`}</section>
+      ${notes.length ? `<section class="panel"><h2>💡 טיפים והערות חשובות</h2><ul class="notes">${notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul></section>` : ""}
+      ${r.video ? `<section class="panel vidpanel noprint"><h2>🎬 סרטון</h2><video controls playsinline preload="metadata"${r.photo && isPath(r.photo) ? ` poster="${esc(r.photo)}"` : ""} src="${esc(r.video)}"></video></section>` : ""}
+      ${r.credit ? `<p class="src credit">👩‍🍳 המתכון של: <b>${esc(r.credit)}</b></p>` : ""}
+      ${src ? `<p class="src">${src}</p>` : ""}
+      ${(r.sourceImgs || []).length ? `<details class="orig"><summary>📷 תמונת המקור</summary><div class="scans">${r.sourceImgs.map((im, i) => `<a href="${isPath(im) ? esc(im) : "#"}" target="_blank" rel="noopener" data-full="${esc(im)}"><img alt="תמונת המקור ${i + 1}" loading="lazy" ${imgAttr(im)}></a>`).join("")}<small>נגיעה בתמונה פותחת אותה בגודל מלא</small></div></details>` : ""}
+      <div class="ractions noprint"><button class="btn danger" type="button" data-act="del">🗑️ מחיקת המתכון</button></div>
+    </article>
+    ${more.length ? `<section class="more noprint"><h2>עוד ${esc(c.name)}</h2><ul class="grid">${more.map(cardHTML).join("")}</ul></section>` : ""}
+    </div>`, {page: true});
   if (location.hash !== "#" + r.id) history.replaceState(null, "", "#" + r.id);
   fillImgs(p);
   p.addEventListener("click", async e => {
-    const li = e.target.closest(".ing li[data-i]"); if (li) { li.classList.toggle("done"); return; }
+    const li = e.target.closest(".steps:not(.plain) li"); if (li) { li.classList.toggle("done"); return; }
+    const o = e.target.closest("[data-open]"); if (o) { openRecipe(o.dataset.open); return; }
+    const full = e.target.closest("a[data-full]"); if (full && !isPath(full.dataset.full)) { e.preventDefault(); const d = await getImg(full.dataset.full); if (d) { const w = window.open(); if (w) w.document.write(`<img src="${d}" style="max-width:100%">`); } return; }
     const a = e.target.closest("[data-act]"); if (!a) return;
     const act = a.dataset.act;
     if (act === "close") closeLayer();
-    else if (act === "orig") { const o = $("#orig", p); o.hidden = !o.hidden; a.textContent = o.hidden ? "הצגת התמונה המקורית" : "הסתרת התמונה המקורית"; }
     else if (act === "edit") openEditor(r);
     else if (act === "fav") { r.fav = !r.fav; await saveRecipe(r); openRecipe(r.id); }
     else if (act === "ok") { r.fresh = false; await saveRecipe(r); openRecipe(r.id); toast("מעולה, סומן כבדוק"); }
     else if (act === "share") openShare({kind: "recipe", ids: [r.id], title: r.title});
-    else if (act === "photo") pickPhoto(async url => { const old = r.photo; r.photo = await putImg(url); r.autoPhoto = false; await saveRecipe(r); if (old) await delImg(old); openRecipe(r.id); toast("התמונה נוספה"); });
-    else if (act === "nophoto") { const old = r.photo; r.photo = null; r.autoPhoto = false; await saveRecipe(r); if (old) await delImg(old); openRecipe(r.id); toast("התמונה הוסרה"); }
+    else if (act === "photo") pickPhoto(async url => {
+      const old = r.photo; r.photo = await putImg(url); r.photos = (r.photos || []).filter(x => x !== old && x !== r.photo); r.autoPhoto = false;
+      if (r.builtin && old && isPath(old)) r.thumb = ""; // the old card picture belonged to the old photo
+      await saveRecipe(r); if (old) await delImg(old); openRecipe(r.id); toast("התמונה עודכנה");
+    });
+    else if (act === "nophoto") {
+      const cur = photos[0]; r.photos = (r.photos || []).filter(x => x !== cur); r.photo = r.photos[0] || null; r.autoPhoto = false;
+      if (r.builtin) r.thumb = r.photo ? r.thumb : ""; await saveRecipe(r); await delImg(cur); openRecipe(r.id); toast("התמונה הוסרה");
+    }
     else if (act === "del") {
-      if (!a.classList.contains("armed")) { a.classList.add("armed"); a.textContent = "ללחוץ שוב כדי למחוק"; setTimeout(() => { if (a.isConnected) { a.classList.remove("armed"); a.textContent = "מחיקה"; } }, 3500); return; }
+      if (!a.classList.contains("armed")) { a.classList.add("armed"); a.textContent = "ללחוץ שוב כדי למחוק"; setTimeout(() => { if (a.isConnected) { a.classList.remove("armed"); a.textContent = "🗑️ מחיקת המתכון"; } }, 3500); return; }
       closeLayer(); await deleteRecipe(r.id); toast("המתכון נמחק");
     }
   });
@@ -669,33 +696,40 @@ $("#fPhoto").addEventListener("change", async e => {
 });
 
 /* ---------- editor ---------- */
-function catOptions(sel) { return cats().map(c => `<option value="${esc(c.id)}"${c.id === sel ? " selected" : ""}>${esc(c.name)}</option>`).join("") + `<option value="__new">+ קטגוריה חדשה…</option>`; }
+function catOptions(sel) { return cats().map(c => `<option value="${esc(c.id)}"${c.id === sel ? " selected" : ""}>${esc(c.emoji)} ${esc(c.name)}</option>`).join("") + `<option value="__new">+ קטגוריה חדשה…</option>`; }
 function openEditor(r, {isNew} = {}) {
   const draft = clone(r);
   let newPhoto; // undefined = unchanged, null = removed, string = new data url
   const p = openLayer(head(isNew ? "מתכון חדש" : "עריכת מתכון") + `
     <form class="panel-b" id="edForm">
-      <label class="field"><span>שם המתכון</span><input class="inp" id="edTitle" required value="${esc(isNew && draft.title === "מתכון ללא שם" ? "" : draft.title)}" placeholder="למשל: קציצות דגים של סבתא"${isNew ? " autofocus" : ""}></label>
+      <label class="field"><span>שם המתכון</span><input class="inp" id="edTitle" required value="${esc(isNew && draft.title === "מתכון ללא שם" ? "" : draft.title)}" placeholder="למשל: קציצות עוף של סבתא"${isNew ? " autofocus" : ""}></label>
+      <label class="field"><span>משפט קצר על המנה (לא חובה)</span><input class="inp" id="edIntro" value="${esc(draft.intro)}" placeholder="למשל: העוגה שסבתא הכינה בכל שבת"></label>
       <div class="row2">
         <label class="field"><span>קטגוריה</span><select class="inp" id="edCat">${catOptions(draft.category)}</select></label>
-        <label class="field"><span>זמן הכנה</span><input class="inp" id="edTime" value="${esc(draft.time)}" placeholder="40 דקות"></label>
-        <label class="field"><span>כמות / מנות</span><input class="inp" id="edServ" value="${esc(draft.servings)}" placeholder="6 מנות"></label>
+        <label class="field"><span>כשרות</span><select class="inp" id="edK"><option value="">לא צוין</option>${Object.entries(KASH).map(([k, v]) => `<option value="${k}"${draft.k === k ? " selected" : ""}>${KASH_EMOJI[k]} ${v}</option>`).join("")}</select></label>
       </div>
-      <label class="field" id="edNewCatWrap" hidden><span>שם הקטגוריה החדשה</span><input class="inp" id="edNewCat" placeholder="למשל: אוכל לפסח"></label>
-      <label class="field"><span>מצרכים</span><small>מצרך בכל שורה. כותרת משנה: שורה שמתחילה ב-## (למשל ## לבצק)</small><textarea class="inp" id="edIng" rows="8">${esc(draft.ingredients.join("\n"))}</textarea></label>
-      <label class="field"><span>אופן ההכנה</span><small>שלב בכל שורה, בלי מספרים – המספור אוטומטי</small><textarea class="inp" id="edSteps" rows="8">${esc(draft.steps.join("\n"))}</textarea></label>
-      <label class="field"><span>הערות וטיפים</span><textarea class="inp" id="edNotes" rows="3">${esc(draft.notes)}</textarea></label>
+      <label class="field" id="edNewCatWrap" hidden><span>שם הקטגוריה החדשה</span><input class="inp" id="edNewCat" placeholder="למשל: אוכל לתינוק"></label>
+      <label class="check"><input type="checkbox" id="edPes"${draft.pesach ? " checked" : ""}><span>🍷 כשר לפסח</span></label>
       <div class="row2">
-        <label class="field"><span>תגיות</span><small>מופרדות בפסיק</small><input class="inp" id="edTags" value="${esc((draft.tags || []).join(", "))}" placeholder="פרווה, חגים"></label>
-        <label class="field"><span>קישור למקור (לא חובה)</span><input class="inp" id="edUrl" type="url" dir="ltr" value="${esc(draft.source && draft.source.url || "")}" placeholder="https://"></label>
+        <label class="field"><span>🔥 חום התנור</span><input class="inp" id="edTemp" value="${esc(draft.temp)}" placeholder="180 מעלות"></label>
+        <label class="field"><span>⏱️ זמן</span><input class="inp" id="edTime" value="${esc(draft.time)}" placeholder="40 דקות"></label>
+        <label class="field"><span>🍽️ כמות</span><input class="inp" id="edServ" value="${esc(draft.servings)}" placeholder="6 מנות"></label>
       </div>
-      <div class="field"><span>תמונה של המנה</span><div class="photo-pick" id="edPhotoBox"></div></div>
+      <label class="field"><span>🧺 מצרכים</span><small>מצרך בכל שורה. כותרת משנה: שורה שמתחילה ב-## (למשל ## לבצק)</small><textarea class="inp" id="edIng" rows="8">${esc(draft.ingredients.join("\n"))}</textarea></label>
+      <label class="field"><span>👩‍🍳 אופן ההכנה</span><small>שלב בכל שורה, בלי מספרים – המספור אוטומטי. כותרת משנה: ##</small><textarea class="inp" id="edSteps" rows="8">${esc(draft.steps.join("\n"))}</textarea></label>
+      <label class="field"><span>💡 טיפים והערות</span><small>הערה בכל שורה</small><textarea class="inp" id="edNotes" rows="3">${esc(draft.notes)}</textarea></label>
+      <div class="row2">
+        <label class="field"><span>👩‍🍳 המתכון של</span><input class="inp" id="edCredit" value="${esc(draft.credit)}" placeholder="למשל: סבתא סולטנה"></label>
+        <label class="field"><span>תגיות</span><small>מופרדות בפסיק</small><input class="inp" id="edTags" value="${esc((draft.tags || []).join(", "))}" placeholder="חגים, מהיר"></label>
+      </div>
+      <label class="field"><span>קישור למקור (לא חובה)</span><input class="inp" id="edUrl" type="url" dir="ltr" value="${esc(draft.source && draft.source.url || "")}" placeholder="https://"></label>
+      <div class="field"><span>📷 תמונה של המנה</span><div class="photo-pick" id="edPhotoBox"></div></div>
     </form>
     <div class="panel-f"><button class="btn primary" type="button" data-act="save">שמירה</button><button class="btn" type="button" data-act="close">ביטול</button></div>`);
   const box = $("#edPhotoBox", p);
   async function drawPhoto() {
     const cur = newPhoto === undefined ? await getImg(draft.photo) : newPhoto;
-    box.innerHTML = (cur ? `<img alt="" src="${cur}">` : "") + `<button class="btn sm" type="button" data-act="ph">${cur ? "החלפה" : "בחירת תמונה"}</button>${cur ? `<button class="btn ghost sm" type="button" data-act="phx">הסרה</button>` : ""}`;
+    box.innerHTML = (cur ? `<img alt="" src="${esc(cur)}">` : "") + `<button class="btn sm" type="button" data-act="ph">${cur ? "החלפה" : "בחירת תמונה"}</button>${cur ? `<button class="btn ghost sm" type="button" data-act="phx">הסרה</button>` : ""}`;
   }
   drawPhoto();
   $("#edCat", p).addEventListener("change", e => { $("#edNewCatWrap", p).hidden = e.target.value !== "__new"; if (e.target.value === "__new") $("#edNewCat", p).focus(); });
@@ -710,25 +744,33 @@ function openEditor(r, {isNew} = {}) {
       const title = $("#edTitle", p).value.trim(); if (!title) { $("#edTitle", p).focus(); toast("צריך שם למתכון"); return; }
       let cat = $("#edCat", p).value;
       if (cat === "__new") { const nm = $("#edNewCat", p).value.trim(); if (!nm) { $("#edNewCat", p).focus(); return; } cat = await addCategory(nm); }
-      const lines = v => v.split("\n").map(s => s.trim()).filter(Boolean);
-      Object.assign(draft, {title, category: cat, time: $("#edTime", p).value.trim(), servings: $("#edServ", p).value.trim(),
-        ingredients: lines($("#edIng", p).value), steps: lines($("#edSteps", p).value).map(s => s.replace(/^\d+[.)]\s*/, "")),
-        notes: $("#edNotes", p).value.trim(), tags: $("#edTags", p).value.split(/[,،]/).map(s => s.trim()).filter(Boolean), fresh: false, sample: false});
+      const lines = v => v.split("\n").map(x => x.trim()).filter(Boolean);
+      Object.assign(draft, {title, category: cat, k: $("#edK", p).value, pesach: $("#edPes", p).checked, intro: $("#edIntro", p).value.trim(),
+        temp: $("#edTemp", p).value.trim(), time: $("#edTime", p).value.trim(), servings: $("#edServ", p).value.trim(),
+        ingredients: lines($("#edIng", p).value), steps: lines($("#edSteps", p).value).map(x => x.replace(/^\d+[.)]\s*/, "")),
+        notes: $("#edNotes", p).value.trim(), credit: $("#edCredit", p).value.trim(),
+        tags: $("#edTags", p).value.split(/[,،]/).map(x => x.trim()).filter(Boolean), fresh: false});
       const url = $("#edUrl", p).value.trim();
       const src = Object.assign({type: "manual"}, draft.source);
       if (url) {
-        if (["manual", "web", "text", "sample"].includes(src.type)) draft.source = {type: "web", url, label: hostOf(url)};
+        if (["manual", "web", "text"].includes(src.type)) draft.source = {type: "web", url, label: hostOf(url)};
         else draft.source = Object.assign(src, {url});
       } else { delete src.url; delete src.alt; if (src.type === "web") src.type = "manual"; draft.source = src; }
-      if (newPhoto !== undefined) { const old = draft.photo; draft.photo = newPhoto ? await putImg(newPhoto) : null; draft.autoPhoto = false; if (old) await delImg(old); }
+      if (newPhoto !== undefined) {
+        const old = draft.photo; draft.photo = newPhoto ? await putImg(newPhoto) : null; draft.autoPhoto = false;
+        draft.photos = (draft.photos || []).filter(x => x !== old && x !== draft.photo);
+        if (!draft.photo && draft.photos.length) draft.photo = draft.photos[0];
+        if (draft.builtin && old && isPath(old)) draft.thumb = "";
+        if (old) await delImg(old);
+      }
       await saveRecipe(draft); toast("נשמר"); openRecipe(draft.id);
     }
   });
 }
 async function addCategory(name) {
   const ex = cats().find(c => c.name === name); if (ex) return ex.id;
-  const used = cats().map(c => c.h); const palette = [160, 270, 5, 60, 210, 320, 100, 240];
-  const c = {id: "c" + Math.random().toString(36).slice(2, 8), name, h: palette.find(h => !used.includes(h)) ?? Math.floor(Math.random() * 360)};
+  const used = cats().map(c => c.color);
+  const c = {id: "c" + Math.random().toString(36).slice(2, 8), name, short: name, emoji: "🍴", color: CAT_COLORS.find(x => !used.includes(x)) || CAT_COLORS[customCats.length % CAT_COLORS.length]};
   customCats.push(c); await meta.set("customCats", customCats); return c.id;
 }
 
@@ -742,7 +784,7 @@ function openNewMenu() {
   p.addEventListener("click", e => {
     const a = e.target.closest("[data-act]"); if (!a) return;
     if (a.dataset.act === "close") closeLayer();
-    if (a.dataset.act === "manual") openEditor(normRecipe({title: "", category: S.cat !== "all" ? S.cat : "other"}), {isNew: true});
+    if (a.dataset.act === "manual") openEditor(normRecipe({title: "", category: S.cat !== "all" && S.cat !== "pesach" ? S.cat : "other", pesach: S.cat === "pesach", k: S.k}), {isNew: true});
     if (a.dataset.act === "paste") openFinder("paste");
     if (a.dataset.act === "scan") openImporter();
   });
@@ -1055,7 +1097,7 @@ function openFinder(mode) {
     if (Find.mode === "web") {
       b.innerHTML = `<form id="ideaForm" style="display:flex;flex-direction:column;gap:12px">
         <label class="field"><span>מה מתחשק לכם?</span><div style="display:flex;gap:8px"><input class="inp" id="fq" value="${esc(Find.query)}" placeholder="למשל: פשטידת ירקות בלי קמח" autofocus><button class="btn primary" type="submit"${Find.busy ? " disabled" : ""}>חיפוש</button></div></label>
-        <div class="sugg">${SUGG.map(s => `<button type="button" class="chip plain" data-sugg="${esc(s)}">${esc(s)}</button>`).join("")}</div>
+        <div class="sugg">${SUGG.map(s => `<button type="button" class="chip" data-sugg="${esc(s)}">${esc(s)}</button>`).join("")}</div>
         ${Gemini.on ? `<p class="hint" style="margin:0">Gemini מחפש בגוגל, מביא 3 מתכונים מאתרים שונים ומציין מאיזה אתר כל אחד הגיע.</p>`
           : `<div class="engine"><div><b>חיפוש חכם דורש מפתח Gemini חינמי</b>בלי מפתח, החיפוש פותח את גוגל או את יוטיוב, ואת המתכון שמצאתם מדביקים ב"ייבוא מאתר". <button class="btn sm" type="button" data-act="engine">חיבור Gemini</button></div></div>`}
       </form><div id="fres" style="display:flex;flex-direction:column;gap:12px"></div>`;
@@ -1079,7 +1121,7 @@ function openFinder(mode) {
     box.innerHTML = Find.results.map((r, k) => {
       const cid = catFromName(r.category); const c = catById(cid);
       const src = r._src;
-      return `<article class="res"><div class="chips"><span class="chip" style="--h:${c.h}">${esc(c.name)}</span>${r.time ? `<span class="chip plain">${esc(r.time)}</span>` : ""}</div>
+      return `<article class="res"><div class="badges"><span class="badge" style="background:${c.color}">${esc(c.emoji)} ${esc(c.name)}</span>${r.kashrut && KASH[r.kashrut] ? `<span class="badge k-${r.kashrut}">${KASH[r.kashrut]}</span>` : ""}${r.time ? `<span class="badge">⏱️ ${esc(r.time)}</span>` : ""}</div>
         <h3>${esc(r.title)}</h3>${r.summary ? `<p style="margin:0">${esc(r.summary)}</p>` : ""}
         <div class="from"><span><b>מקור:</b> ${src ? `<a href="${esc(src.uri)}" target="_blank" rel="noopener">${esc(src.title || r.sourceName)} ↗</a>` : esc(r.sourceName || "לא צוין")}</span>${r.sourceName ? `<a href="${gLink(r.title + " " + r.sourceName)}" target="_blank" rel="noopener">חיפוש המתכון באתר</a>` : ""}</div>
         <details><summary>הצגת המתכון</summary><b>מצרכים</b><ul>${(r.ingredients || []).map(x => `<li>${esc(x)}</li>`).join("")}</ul><b>אופן ההכנה</b><ol>${(r.steps || []).map(x => `<li>${esc(x)}</li>`).join("")}</ol>${r.notes ? `<p>${esc(r.notes)}</p>` : ""}</details>
@@ -1095,7 +1137,7 @@ function openFinder(mode) {
     try {
       const {value, sources} = await Gemini.json(`Search the web for home recipes matching: "${q}".
 Choose 3 different real recipes from 3 different websites (when the request is in Hebrew, prefer Israeli recipe sites). Copy each recipe faithfully from its page — the ingredients and steps as that page gives them — written in Hebrew (translate if the page is not in Hebrew). Do not invent recipes.
-Reply with only JSON, no other text: {"results":[{"title":"","sourceName":"the website's domain, e.g. foodish.co.il","category": one of [${catNames()}],"summary":"one sentence","servings":"","time":"","ingredients":["..."],"steps":["..."],"notes":""}]}`, {search: true, signal: Find.ctl.signal});
+Reply with only JSON, no other text: {"results":[{"title":"","sourceName":"the website's domain, e.g. foodish.co.il","category": one of [${catNames()}],"kashrut":"parve|dairy|meat","summary":"one sentence","servings":"","time":"","ingredients":["..."],"steps":["..."],"notes":""}]}`, {search: true, signal: Find.ctl.signal});
       Find.sources = sources || [];
       Find.results = (value && Array.isArray(value.results) ? value.results : []).slice(0, 4).map(r => Object.assign(r, {_src: matchSource(r.sourceName, Find.sources)}));
       if (!Find.results.length) toast("לא נמצאו תוצאות. נסו לנסח אחרת.");
@@ -1152,18 +1194,20 @@ ${text.slice(0, 60000)}`);
 function recipeText(r) {
   const c = catById(r.category); const L = [];
   L.push("*" + r.title + "*");
-  L.push([c.name, r.servings && "כמות: " + r.servings, r.time && "זמן: " + r.time].filter(Boolean).join(" · "));
+  L.push([c.name, KASH[r.k], r.pesach && "כשר לפסח", r.temp && "חום: " + r.temp, r.servings && "כמות: " + r.servings, r.time && "זמן: " + r.time].filter(Boolean).join(" · "));
+  if (r.intro) L.push(r.intro);
   if (r.ingredients.length) { L.push("", "*מצרכים*"); r.ingredients.forEach(x => L.push(/^#/.test(x) ? "_" + x.replace(/^#+\s*/, "") + "_" : "• " + x)); }
   if (r.steps.length) { L.push("", "*אופן ההכנה*"); let n = 0; r.steps.forEach(x => L.push(/^#/.test(x) ? "_" + x.replace(/^#+\s*/, "") + "_" : (++n) + ". " + x)); }
-  if (r.notes) L.push("", "*הערות*", r.notes);
+  if (r.notes) L.push("", "*טיפים והערות*", r.notes);
+  if (r.credit) L.push("", "המתכון של: " + r.credit);
   const s = r.source || {}; if (s.url) L.push("", "מקור: " + s.url);
   return L.join("\n");
 }
 async function bundle(list, withImages) {
   const images = {};
   const recipes = list.map(r => { const o = clone(r); delete o.fresh; delete o.sample; return o; });
-  if (withImages) for (const r of recipes) for (const id of [r.photo, ...(r.sourceImgs || [])].filter(Boolean)) { const d = await getImg(id); if (d) images[id] = d; }
-  if (!withImages) recipes.forEach(r => { r.photo = null; r.sourceImgs = []; });
+  if (withImages) for (const r of recipes) for (const id of [r.photo, ...(r.photos || []), ...(r.sourceImgs || [])].filter(Boolean)) { if (isPath(id)) continue; const d = await getImg(id); if (d) images[id] = d; }
+  if (!withImages) recipes.forEach(r => { r.photo = null; r.photos = []; r.sourceImgs = []; });
   return {app: "recipe-notebook", version: 1, exportedAt: new Date().toISOString(), categories: customCats, recipes, images};
 }
 /* share links carry the recipes inside the link itself (compressed), no server needed */
@@ -1185,8 +1229,8 @@ async function unpackLink(code) {
   if (code[0] === "z") raw = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
   return JSON.parse(new TextDecoder().decode(raw));
 }
-const slim = r => { const o = {t: r.title, c: catById(r.category).name, i: r.ingredients, s: r.steps}; if (r.servings) o.v = r.servings; if (r.time) o.m = r.time; if (r.notes) o.n = r.notes; if (r.tags && r.tags.length) o.g = r.tags; if (r.source && r.source.url) o.u = r.source.url; return o; };
-const unslim = o => ({title: o.t, category: o.c, ingredients: o.i, steps: o.s, servings: o.v, time: o.m, notes: o.n, tags: o.g, url: o.u});
+const slim = r => { const o = {t: r.title, c: catById(r.category).name, i: r.ingredients, s: r.steps}; if (r.servings) o.v = r.servings; if (r.time) o.m = r.time; if (r.temp) o.h = r.temp; if (r.notes) o.n = r.notes; if (r.tags && r.tags.length) o.g = r.tags; if (r.source && r.source.url) o.u = r.source.url; if (r.k) o.k = r.k; if (r.pesach) o.p = 1; if (r.credit) o.b = r.credit; if (r.intro) o.x = r.intro; if (r.photo && /^img\//.test(r.photo)) o.f = r.photo; return o; };
+const unslim = o => ({title: o.t, category: o.c, ingredients: o.i, steps: o.s, servings: o.v, time: o.m, temp: o.h, notes: o.n, tags: o.g, url: o.u, k: o.k, pesach: !!o.p, credit: o.b, intro: o.x, photo: o.f && /^img\/[\w./-]+$/.test(o.f) ? o.f : ""});
 function scopeList(sc) {
   if (sc.kind === "all") return S.recipes.filter(r => !r.sample);
   if (sc.kind === "cat") return S.recipes.filter(r => r.category === sc.cat);
@@ -1252,7 +1296,7 @@ async function openSharedLink(code) {
     ev.target.disabled = true;
     for (const it of items) {
       const source = it.url ? {type: "web", url: it.url, label: hostOf(it.url)} : {type: "shared", label: data.t || ""};
-      await saveRecipe(normRecipe(it, {source}), {quiet: true});
+      await saveRecipe(normRecipe(it, {source, photo: it.photo || null}), {quiet: true});
     }
     render(); closeLayer(); toast(`${items.length} מתכונים נשמרו במחברת`);
   });
@@ -1268,8 +1312,9 @@ async function importFile(file) {
     for (const o of data.recipes) {
       const ex = S.recipes.find(r => r.id === o.id);
       if (ex && (ex.updatedAt || 0) >= (o.updatedAt || 0)) continue;
-      const r = normRecipe(o, {id: ex ? ex.id : (o.id || rid()), photo: o.photo ? imgMap[o.photo] || null : null,
-        sourceImgs: (o.sourceImgs || []).map(i => imgMap[i]).filter(Boolean), source: o.source || {type: "shared"}, fav: !!o.fav, createdAt: o.createdAt || now()});
+      const pic = i => imgMap[i] || (isPath(i) && /^img\//.test(i) ? i : null);
+      const r = normRecipe(o, {id: ex ? ex.id : (o.id || rid()), photo: o.photo ? pic(o.photo) : null, photos: (o.photos || []).map(pic).filter(Boolean), thumb: o.thumb && /^img\//.test(o.thumb) ? o.thumb : "",
+        sourceImgs: (o.sourceImgs || []).map(pic).filter(Boolean), video: o.video || "", builtin: !!o.builtin, autoPhoto: !!o.autoPhoto, source: o.source || {type: "shared"}, fav: !!o.fav, createdAt: o.createdAt || now()});
       if (ex) { if (ex.photo && ex.photo !== r.photo) await delImg(ex.photo); upd++; } else n++;
       await saveRecipe(r, {quiet: true});
     }
@@ -1291,7 +1336,7 @@ function openMenu() {
       <button class="opt" type="button" data-act="engine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><div><b>מנוע הסריקה</b><span>${Gemini.on ? "Gemini מחובר" : "סריקה בדפדפן · אפשר לחבר Gemini חינמי לכתב יד ולחיפוש באינטרנט"}</span></div></button>
     </div>
     <div><div class="lbl">הקטגוריות שלכם</div>
-      ${customCats.length ? customCats.map(c => `<div class="catrow"><span class="chip" style="--h:${c.h}">${esc(c.name)}</span><span class="sp"></span><button class="btn ghost sm" type="button" data-delcat="${esc(c.id)}">מחיקה</button></div>`).join("") : `<p class="hint" style="margin:0 0 6px">אפשר להוסיף קטגוריות משלכם, כמו "פסח" או "אוכל לתינוק".</p>`}
+      ${customCats.length ? customCats.map(c => `<div class="catrow"><span class="badge" style="background:${c.color}">${esc(c.emoji || "🍴")} ${esc(c.name)}</span><span class="sp"></span><button class="btn ghost sm" type="button" data-delcat="${esc(c.id)}">מחיקה</button></div>`).join("") : `<p class="hint" style="margin:0 0 6px">אפשר להוסיף קטגוריות משלכם, כמו "אוכל לתינוק" או "ארוחות שישי".</p>`}
       <form id="catForm" style="display:flex;gap:8px;margin-top:8px"><input class="inp" id="newCat" placeholder="שם קטגוריה חדשה"><button class="btn" type="submit">הוספה</button></form>
     </div>
   </div>`, {narrow: true});
@@ -1318,28 +1363,36 @@ function openMenu() {
 }
 
 /* ---------- global events ---------- */
-$("#tabs").addEventListener("click", e => {
-  const t = e.target.closest(".tab"); if (!t) return;
-  if (t.dataset.fav) { S.fav = !S.fav; S.cat = "all"; } else { S.cat = t.dataset.cat; S.fav = false; }
-  render(); window.scrollTo({top: 0});
+$("#chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  if (b.dataset.fav) S.fav = !S.fav;
+  else if (b.dataset.c === "pesach") S.cat = S.cat === "pesach" ? "all" : "pesach";
+  else if (!b.dataset.k) { S.k = ""; S.fav = false; }
+  else S.k = S.k === b.dataset.k ? "" : b.dataset.k;
+  render();
 });
-$("#main").addEventListener("click", e => {
-  const c = e.target.closest("[data-open]"); if (c) { openRecipe(c.dataset.open); return; }
-  const sc = e.target.closest("[data-share-cat]"); if (sc) { openShare({kind: "cat", cat: sc.dataset.shareCat}); return; }
-  const a = e.target.closest("[data-act]"); if (!a) return;
-  if (a.dataset.act === "scan") openImporter();
-  if (a.dataset.act === "find") openFinder("web");
+$("#tiles").addEventListener("click", e => {
+  const t = e.target.closest(".tile"); if (!t) return;
+  S.cat = S.cat === t.dataset.cat ? "all" : t.dataset.cat;
+  render(); $("#list").scrollIntoView({behavior: "smooth", block: "start"});
 });
-$("#notices").addEventListener("click", async e => {
-  if (!e.target.closest("[data-act=clearSamples]")) return;
-  for (const r of S.recipes.filter(r => r.sample)) await deleteRecipe(r.id);
-  toast("הדוגמאות הוסרו");
+$("#grid").addEventListener("click", e => { const c = e.target.closest("[data-open]"); if (c) openRecipe(c.dataset.open); });
+$("#clear").addEventListener("click", () => { S.cat = "all"; S.k = ""; S.fav = false; S.q = ""; $("#q").value = ""; $("#searchBox").classList.remove("has"); render(); });
+$("#shareCat").addEventListener("click", () => {
+  if (S.cat === "pesach") openShare({kind: "list", ids: S.recipes.filter(r => r.pesach).map(r => r.id), title: "פסח"});
+  else openShare({kind: "cat", cat: S.cat});
 });
-let qT; $("#q").addEventListener("input", e => { clearTimeout(qT); qT = setTimeout(() => { S.q = e.target.value.trim(); render(); }, 150); });
+let qT;
+$("#q").addEventListener("input", e => {
+  $("#searchBox").classList.toggle("has", !!e.target.value);
+  clearTimeout(qT); qT = setTimeout(() => { S.q = e.target.value.trim(); render(); }, 150);
+});
+$("#qx").addEventListener("click", () => { $("#q").value = ""; $("#searchBox").classList.remove("has"); S.q = ""; render(); $("#q").focus(); });
 $("#sort").addEventListener("change", e => { S.sort = e.target.value; render(); ls.set("rn-sort", S.sort); });
 $("#bScan").addEventListener("click", openImporter);
 $("#bNew").addEventListener("click", openNewMenu);
 $("#bFind").addEventListener("click", () => openFinder("web"));
+$("#bShare").addEventListener("click", () => openShare({kind: "all"}));
 $("#bMenu").addEventListener("click", openMenu);
 function routeHash() {
   const h = location.hash.slice(1); if (!h) return;
@@ -1350,18 +1403,13 @@ window.addEventListener("hashchange", routeHash);
 
 /* ---------- start ---------- */
 async function start() {
-  S.sort = ls.get("rn-sort", "new"); $("#sort").value = S.sort;
+  S.sort = ls.get("rn-sort", "new"); if (!["new", "az"].includes(S.sort)) S.sort = "new"; $("#sort").value = S.sort;
   await Store.open();
-  customCats = await meta.get("customCats", []);
+  customCats = (await meta.get("customCats", [])).map((c, i) => Object.assign({short: c.name, emoji: "🍴", color: CAT_COLORS[i % CAT_COLORS.length]}, c));
   S.recipes = (await Store.all("recipes")) || [];
-  if (!(await meta.get("seeded", false)) && !S.recipes.length) {
-    for (const o of SAMPLES) {
-      const r = normRecipe(o, {sample: true, source: {type: "sample"}});
-      S.recipes.push(r); await Store.put("recipes", clone(r));
-    }
-    await meta.set("seeded", true);
-  }
+  for (const r of S.recipes) if (OLD_CAT[r.category]) { r.category = OLD_CAT[r.category]; await Store.put("recipes", clone(r)); }
   render();
+  if (await loadBuiltins()) render();
   routeHash();
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
 }
